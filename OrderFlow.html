@@ -1,0 +1,2613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrderFlow — Control de Órdenes Ecommerce</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#171b24;--bg3:#1e2330;
+  --border:#2a2f3d;--border2:#353b4d;
+  --text:#e8eaf0;--text2:#9097ad;--text3:#5a6078;
+  --accent:#3b82f6;--accent-bg:rgba(59,130,246,.12);
+  --green:#22c55e;--green-bg:rgba(34,197,94,.12);
+  --red:#ef4444;--red-bg:rgba(239,68,68,.12);
+  --amber:#f59e0b;--amber-bg:rgba(245,158,11,.12);
+  --purple:#a78bfa;--purple-bg:rgba(167,139,250,.12);
+  --orange:#fb923c;--orange-bg:rgba(251,146,60,.12);
+  --radius:6px;--radius-lg:10px;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:13px}
+.topbar{display:flex;align-items:center;padding:0 20px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:12px}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:-.3px}
+.logo svg{color:var(--accent)}
+.role-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+.rb-captura{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.rb-almacen{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.rb-cobranza{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(59,130,246,.25)}
+.rb-admin{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.25)}
+.role-switcher{display:flex;align-items:center;gap:6px;margin-left:auto}
+.role-switcher span{font-size:11px;color:var(--text3)}
+.role-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.role-btn:hover{border-color:var(--accent);color:var(--text)}
+.role-btn.active[data-role="captura"]{background:var(--green-bg);color:var(--green);border-color:rgba(34,197,94,.4)}
+.role-btn.active[data-role="almacen"]{background:var(--amber-bg);color:var(--amber);border-color:rgba(245,158,11,.4)}
+.role-btn.active[data-role="cobranza"]{background:var(--accent-bg);color:var(--accent);border-color:rgba(59,130,246,.4)}
+.role-btn.active[data-role="admin"]{background:var(--purple-bg);color:var(--purple);border-color:rgba(167,139,250,.4)}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:224px;background:var(--bg2);border-right:1px solid var(--border);padding:12px 0;flex-shrink:0;overflow-y:auto}
+.sidebar-section{padding:12px 16px 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;font-size:13px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .12s;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg3);color:var(--text);border-left-color:var(--accent);font-weight:500}
+.nav-item.disabled{opacity:.3;pointer-events:none}
+.nav-item svg{width:16px;height:16px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nav-badge.orange{background:var(--orange)}
+.nav-badge.red{background:var(--red)}
+.content{flex:1;overflow:auto;padding:24px;background:var(--bg)}
+.page{display:none}.page.active{display:block}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-title{font-size:20px;font-weight:600;letter-spacing:-.4px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.stat-label{font-size:11px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.stat-val{font-size:28px;font-weight:700;letter-spacing:-.5px}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.filter-bar input,.filter-bar select{padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--accent)}
+.filter-bar input{flex:1;min-width:180px}
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th{background:var(--bg3);color:var(--text3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.row-cancel td{background:rgba(239,68,68,.04)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.pill::before{content:'';width:6px;height:6px;border-radius:50%}
+.pill-p{background:rgba(90,96,120,.2);color:#8b93aa}.pill-p::before{background:#5a6078}
+.pill-s{background:var(--green-bg);color:var(--green)}.pill-s::before{background:var(--green)}
+.pill-c{background:var(--red-bg);color:var(--red)}.pill-c::before{background:var(--red)}
+.pill-t{background:var(--accent-bg);color:var(--accent)}.pill-t::before{background:var(--accent)}
+.pill-k{background:var(--purple-bg);color:var(--purple)}.pill-k::before{background:var(--purple)}
+.pill-x{background:var(--orange-bg);color:var(--orange)}.pill-x::before{background:var(--orange)}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
+.tag-son{border-color:rgba(59,130,246,.3);color:var(--accent);background:var(--accent-bg)}
+.tag-aya{border-color:rgba(167,139,250,.3);color:var(--purple);background:var(--purple-bg)}
+.no-v{font-size:11px;color:var(--text2);font-family:monospace}
+.sin{color:var(--text3);font-style:italic;font-size:11px}
+.ok-txt{color:var(--green);font-weight:600;font-size:12px}
+/* Check badges para surtido/traspaso independientes */
+.chk{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
+.chk-done-s{background:var(--green-bg);color:var(--green);border-color:rgba(34,197,94,.3)}
+.chk-done-t{background:var(--accent-bg);color:var(--accent);border-color:rgba(59,130,246,.3)}
+.chk-pend{background:var(--bg3);color:var(--text3);border-color:var(--border2)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:all .12s;font-family:var(--font);white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff;border-color:transparent}.btn-primary:hover{background:#2563eb;color:#fff}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-success{background:var(--green-bg);color:var(--green);border-color:rgba(34,197,94,.3)}.btn-success:hover{border-color:var(--green)}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.3)}.btn-danger:hover{border-color:var(--red)}
+.btn-purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(167,139,250,.3)}.btn-purple:hover{border-color:var(--purple)}
+.btn-accent{background:var(--accent-bg);color:var(--accent);border-color:rgba(59,130,246,.3)}.btn-accent:hover{border-color:var(--accent)}
+.btn-group{display:flex;gap:6px;align-items:center}
+.dis{opacity:.35;pointer-events:none}
+.form-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
+.fsec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.fsec-sub{font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.frow.full{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:5px}
+.req{color:var(--red);font-size:11px}
+.opt-lbl{font-size:10px;font-weight:400;color:var(--text3)}
+.fg input,.fg select,.fg textarea{padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent)}
+.fg input.opt,.fg select.opt,.fg textarea.opt{border-color:var(--border)}
+.fg textarea{resize:vertical;min-height:64px}
+.razon-preview{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--radius);font-size:12px;font-weight:500;margin-top:4px}
+.form-actions{display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;line-height:1.5}
+.alert svg{flex-shrink:0;width:15px;height:15px;margin-top:1px}
+.alert-info{background:var(--accent-bg);color:#93c5fd;border:1px solid rgba(59,130,246,.25)}
+.alert-warn{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.alert-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.alert-orange{background:var(--orange-bg);color:var(--orange);border:1px solid rgba(251,146,60,.25)}
+/* Resumen traspaso del día */
+.resumen-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:20px}
+.resumen-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.resumen-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2)}
+.resumen-rs-block{display:flex;gap:24px;padding:16px 20px;align-items:center;flex-wrap:wrap}
+.rs-big{display:flex;flex-direction:column;gap:4px}
+.rs-big-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}
+.rs-big-val{font-size:32px;font-weight:700;letter-spacing:-.5px}
+.rs-big-val.son{color:var(--accent)}
+.rs-big-val.aya{color:var(--purple)}
+.rs-divider{width:1px;background:var(--border2);height:48px;flex-shrink:0}
+.rs-models{flex:1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rs-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.rs-son{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(59,130,246,.3)}
+.rs-aya{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.3)}
+.ticket-input{padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-family:var(--font);width:160px;outline:none}
+.ticket-input:focus{border-color:var(--accent)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:18px;letter-spacing:-.3px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.dl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.dv{font-size:13px;color:var(--text)}
+.log-entry{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px}
+.log-entry:last-child{border-bottom:none}
+.log-who{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--bg3);color:var(--text2);white-space:nowrap}
+.log-act{flex:1;color:var(--text)}
+.log-time{font-size:10px;color:var(--text3);white-space:nowrap}
+.cancel-steps{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.cancel-step{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:var(--radius);border:1px solid var(--border)}
+.cancel-step.active-step{border-color:rgba(239,68,68,.4);background:var(--red-bg)}
+.step-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700}
+.step-icon.warn{background:var(--red-bg);color:var(--red)}
+.step-icon.ok{background:var(--green-bg);color:var(--green)}
+.step-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.step-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;z-index:300;display:none;align-items:center;gap:9px;box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:340px}
+.toast.show{display:flex}
+.toast-ok{border-color:rgba(34,197,94,.4);color:var(--green)}
+.toast-warn{border-color:rgba(245,158,11,.4);color:var(--amber)}
+.toast-red{border-color:rgba(239,68,68,.4);color:var(--red)}
+.section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px}
+.tab-row{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.tab-btn{padding:8px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font)}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}.tab-content.active{display:block}
+.link{color:var(--accent);cursor:pointer}.link:hover{text-decoration:underline}
+.obs-cell{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text2)}
+
+/* ── STATS TOGGLE ── */
+.stats-toggle-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.stats-toggle-btn:hover{border-color:var(--accent);color:var(--accent)}
+.stats-toggle-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(59,130,246,.3)}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;transition:all .2s}
+.stats-row.hidden{display:none}
+
+/* ── FILTROS TIPO EXCEL ── */
+.th-filterable{position:relative;cursor:pointer;user-select:none}
+.th-filterable:hover{color:var(--text)}
+.th-filter-icon{display:inline-flex;align-items:center;gap:4px}
+.th-filter-icon svg{width:11px;height:11px;opacity:.5;transition:opacity .15s}
+.th-filterable:hover .th-filter-icon svg,.th-filterable.filtered .th-filter-icon svg{opacity:1;color:var(--accent)}
+.th-filterable.filtered{color:var(--accent)}
+.filter-dropdown{display:none;position:absolute;top:100%;left:0;z-index:50;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:8px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:260px;overflow-y:auto}
+.filter-dropdown.open{display:block}
+.filter-search{width:100%;padding:5px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-family:var(--font);margin-bottom:6px;outline:none;box-sizing:border-box}
+.filter-search:focus{border-color:var(--accent)}
+.filter-option{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text2);transition:background .1s}
+.filter-option:hover{background:var(--bg3);color:var(--text)}
+.filter-option input[type=checkbox]{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.filter-actions{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.filter-clear{font-size:11px;color:var(--text3);cursor:pointer;padding:3px 6px;border-radius:4px}
+.filter-clear:hover{color:var(--accent)}
+
+/* ── FILTRO RANGO FECHAS ── */
+.date-range-filter{padding:8px;min-width:220px}
+.date-range-filter label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px}
+.date-range-filter input{width:100%;padding:5px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-family:var(--font);outline:none;box-sizing:border-box}
+.date-range-filter input:focus{border-color:var(--accent)}
+.date-range-filter .dr-row{margin-bottom:6px}
+
+/* ── AUTOCOMPLETE MODELO ── */
+.autocomplete-list{display:none;position:absolute;top:100%;left:0;z-index:60;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:200px;overflow-y:auto}
+.autocomplete-list.open{display:block}
+.autocomplete-item{padding:7px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .1s}
+.autocomplete-item:hover{background:var(--bg3);color:var(--text)}
+.autocomplete-item mark{background:transparent;color:var(--accent);font-weight:700}
+
+/* ── PAQUETE MULTI-MODELO ── */
+.row-paquete td{background:rgba(34,197,94,.06)!important}
+.row-paquete:hover td{background:rgba(34,197,94,.12)!important}
+.paquete-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.3);margin-left:4px;vertical-align:middle}
+.modelo-extra-frow{display:flex;gap:8px;align-items:flex-end;margin-bottom:6px}
+.modelo-extra-frow input{flex:1}
+.btn-add-modelo{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:var(--radius);border:1px dashed var(--border2);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.btn-add-modelo:hover{border-color:var(--green);color:var(--green)}
+.btn-rm-modelo{padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;font-size:13px;line-height:1;font-family:var(--font)}
+.btn-rm-modelo:hover{border-color:var(--red);color:var(--red)}
+
+/* ── MODAL EDICIÓN CAPTURISTA ── */
+.edit-field-wrap{display:flex;flex-direction:column;gap:4px;padding:10px;background:var(--bg3);border-radius:var(--radius-lg);border:1px solid var(--border)}
+.edit-field-wrap label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.edit-field-wrap input,.edit-field-wrap select,.edit-field-wrap textarea{padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font);outline:none;width:100%;box-sizing:border-box}
+.edit-field-wrap input:focus,.edit-field-wrap select:focus,.edit-field-wrap textarea:focus{border-color:var(--accent)}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.edit-grid .full{grid-column:1/-1}
+.edit-reason-warn{font-size:11px;color:var(--amber);padding:8px 10px;background:var(--amber-bg);border-radius:var(--radius);border:1px solid rgba(245,158,11,.2);margin-bottom:10px}
+
+/* ── NOTIFICACIONES ── */
+.notif-btn{position:relative;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.notif-btn:hover{border-color:var(--accent);color:var(--accent)}
+.notif-count{background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
+.notif-panel{position:absolute;top:52px;right:16px;z-index:100;width:360px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:0 12px 32px rgba(0,0,0,.5);overflow:hidden}
+.notif-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.notif-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2)}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.notif-item:hover{background:var(--bg3)}
+.notif-item.unread{border-left:3px solid var(--amber)}
+.notif-item .ni-title{font-size:12px;font-weight:600;color:var(--text)}
+.notif-item .ni-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.notif-item .ni-time{font-size:10px;color:var(--text3);margin-top:3px}
+.notif-empty{padding:24px;text-align:center;color:var(--text3);font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    OrderFlow
+  </div>
+  <select id="modulo-selector" onchange="cambiarModulo(this.value)" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-family:var(--font);cursor:pointer">
+    <option value="general">Módulo: General</option>
+    <option value="amazon">Módulo: Amazon</option>
+  </select>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <button class="notif-btn" id="notif-btn" onclick="toggleNotifPanel()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notif-count" class="notif-count" style="display:none">0</span>
+    </button>
+    <span id="role-badge" class="role-badge rb-captura">Capturista</span>
+  </div>
+  <div class="role-switcher">
+    <span>Simular rol:</span>
+    <button class="role-btn active" data-role="captura"  onclick="switchRole('captura')">Captura</button>
+    <button class="role-btn"        data-role="almacen"  onclick="switchRole('almacen')">Almacén</button>
+    <button class="role-btn"        data-role="cobranza" onclick="switchRole('cobranza')">Cobranza</button>
+    <button class="role-btn"        data-role="admin"    onclick="switchRole('admin')">Admin</button>
+  </div>
+</div>
+
+<div class="main">
+  <nav class="sidebar">
+    <div class="sidebar-section">Principal</div>
+    <div class="nav-item active" id="nav-ordenes" onclick="goPage('ordenes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Órdenes
+      <span class="nav-badge" id="badge-pend">0</span>
+    </div>
+    <div class="nav-item" id="nav-nueva" onclick="goPage('nueva')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nueva orden
+    </div>
+    <div class="sidebar-section">Flujo de trabajo</div>
+    <div class="nav-item" id="nav-surtido" onclick="goPage('surtido')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Surtido / Traspaso
+    </div>
+    <div class="nav-item" id="nav-cobro" onclick="goPage('cobro')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Anotar ticket cobro
+    </div>
+    <div class="sidebar-section">Reportes</div>
+    <div class="nav-item" id="nav-posteriores" onclick="goPage('posteriores')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Resumen de traspasos
+    </div>
+    <div class="nav-item" id="nav-cancelaciones" onclick="goPage('cancelaciones')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      Cancelaciones
+      <span class="nav-badge red" id="badge-canc">0</span>
+    </div>
+    <div class="nav-item" id="nav-historial" onclick="goPage('historial')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Historial
+    </div>
+
+    <!-- ═══ NAV MÓDULO AMAZON (oculto hasta que se seleccione) ═══ -->
+    <div class="sidebar-section nav-amazon" style="display:none">Amazon</div>
+    <div class="nav-item nav-amazon" id="nav-amz-dashboard" style="display:none" onclick="goPage('amz-dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard Amazon
+    </div>
+    <div class="nav-item nav-amazon" id="nav-amz-ordenes" style="display:none" onclick="goPage('amz-ordenes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Órdenes Amazon
+    </div>
+    <div class="nav-item nav-amazon" id="nav-amz-nueva" style="display:none" onclick="goPage('amz-nueva')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nueva orden Amazon
+    </div>
+    <div class="sidebar-section nav-amazon" style="display:none">Flujo de trabajo</div>
+    <div class="nav-item nav-amazon" id="nav-amz-surtido" style="display:none" onclick="goPage('amz-surtido')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Surtido / Traspaso
+    </div>
+    <div class="nav-item nav-amazon" id="nav-amz-cobro" style="display:none" onclick="goPage('amz-cobro')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Anotar ticket cobro
+    </div>
+    <div class="sidebar-section nav-amazon" style="display:none">Reportes</div>
+    <div class="nav-item nav-amazon" id="nav-amz-resumen" style="display:none" onclick="goPage('amz-resumen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Resumen de traspasos
+    </div>
+    <div class="nav-item nav-amazon" id="nav-amz-cancelaciones" style="display:none" onclick="goPage('amz-cancelaciones')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      Cancelaciones
+      <span class="nav-badge red" id="amz-badge-canc">0</span>
+    </div>
+  </nav>
+
+  <div class="content">
+
+    <!-- ÓRDENES (fusionada con Dashboard — estadísticas + tabla filtrable) -->
+    <div class="page active" id="page-ordenes">
+      <div class="page-header">
+        <div class="page-title">Órdenes</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:12px;color:var(--text3)" id="dash-date"></div>
+          <button class="stats-toggle-btn active" id="stats-toggle-btn" onclick="toggleStats()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Estadísticas
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-nueva-top" onclick="goPage('nueva')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nueva orden
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-row" id="stats-row"></div>
+
+      <div class="filter-bar" style="margin-bottom:0">
+        <input type="text" id="s-search" placeholder="Buscar por no. venta, modelo o cliente..." oninput="renderOrdenes()">
+        <button class="btn btn-sm" onclick="limpiarFiltrosColumna()" id="btn-clear-filters" style="display:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Limpiar filtros
+        </button>
+      </div>
+
+      <div class="table-wrap" style="margin-top:10px"><div class="table-scroll" onclick="cerrarDropdowns(event)">
+        <table id="ordenes-main-table">
+          <thead>
+            <tr>
+              <th>No. venta</th>
+              <th class="th-filterable" id="th-fv" onclick="toggleFilterDropdown(event,'dd-fv')">
+                <div class="th-filter-icon">F. venta <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-fv" onclick="event.stopPropagation()">
+                  <div class="date-range-filter">
+                    <div class="dr-row"><label>Desde</label><input type="date" id="fv-desde" oninput="aplicarFiltroFecha('fv')"></div>
+                    <div class="dr-row"><label>Hasta</label><input type="date" id="fv-hasta" oninput="aplicarFiltroFecha('fv')"></div>
+                    <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroFecha('fv')">Limpiar</span></div>
+                  </div>
+                </div>
+              </th>
+              <th class="th-filterable" id="th-modelo" onclick="toggleFilterDropdown(event,'dd-modelo')">
+                <div class="th-filter-icon">Modelo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-modelo" onclick="event.stopPropagation()">
+                  <input class="filter-search" id="modelo-filter-input" placeholder="Escribir modelo..." oninput="filtrarModeloTexto(this.value)">
+                  <div id="dd-modelo-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroModelo()">Limpiar</span></div>
+                </div>
+              </th>
+              <th>Pzas</th>
+              <th class="th-filterable" id="th-plat" onclick="toggleFilterDropdown(event,'dd-plat')">
+                <div class="th-filter-icon">Plataforma <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-plat" onclick="event.stopPropagation()">
+                  <input class="filter-search" placeholder="Buscar..." oninput="filtrarOpciones(this,'dd-plat')">
+                  <div id="dd-plat-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroColumna('plat')">Limpiar</span></div>
+                </div>
+              </th>
+              <th class="th-filterable" id="th-rs" onclick="toggleFilterDropdown(event,'dd-rs')">
+                <div class="th-filter-icon">Razón social <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-rs" onclick="event.stopPropagation()">
+                  <div id="dd-rs-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroColumna('rs')">Limpiar</span></div>
+                </div>
+              </th>
+              <th>Cliente</th>
+              <th class="th-filterable" id="th-pak" onclick="toggleFilterDropdown(event,'dd-pak')">
+                <div class="th-filter-icon">Paquetería <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-pak" onclick="event.stopPropagation()">
+                  <input class="filter-search" placeholder="Buscar..." oninput="filtrarOpciones(this,'dd-pak')">
+                  <div id="dd-pak-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroColumna('pak')">Limpiar</span></div>
+                </div>
+              </th>
+              <th class="th-filterable" id="th-fe" onclick="toggleFilterDropdown(event,'dd-fe')">
+                <div class="th-filter-icon">F. envío <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-fe" onclick="event.stopPropagation()">
+                  <div class="date-range-filter">
+                    <div class="dr-row"><label>Desde</label><input type="date" id="fe-desde" oninput="aplicarFiltroFecha('fe')"></div>
+                    <div class="dr-row"><label>Hasta</label><input type="date" id="fe-hasta" oninput="aplicarFiltroFecha('fe')"></div>
+                    <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroFecha('fe')">Limpiar</span></div>
+                  </div>
+                </div>
+              </th>
+              <th>Obs</th>
+              <th class="th-filterable" id="th-surtido" onclick="toggleFilterDropdown(event,'dd-surtido')">
+                <div class="th-filter-icon">Surtido <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-surtido" onclick="event.stopPropagation()">
+                  <div id="dd-surtido-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroColumna('surtido')">Limpiar</span></div>
+                </div>
+              </th>
+              <th class="th-filterable" id="th-traspaso" onclick="toggleFilterDropdown(event,'dd-traspaso')">
+                <div class="th-filter-icon">Traspaso <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-traspaso" onclick="event.stopPropagation()">
+                  <div id="dd-traspaso-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroColumna('traspaso')">Limpiar</span></div>
+                </div>
+              </th>
+              <th class="th-filterable" id="th-ticket" onclick="toggleFilterDropdown(event,'dd-ticket')">
+                <div class="th-filter-icon">Ticket cobro <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-ticket" onclick="event.stopPropagation()">
+                  <input class="filter-search" id="ticket-filter-input" placeholder="Buscar ticket..." oninput="filtrarTicketTexto(this.value)">
+                  <div id="dd-ticket-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroTicket()">Limpiar</span></div>
+                </div>
+              </th>
+              <th class="th-filterable" id="th-estado" onclick="toggleFilterDropdown(event,'dd-estado')">
+                <div class="th-filter-icon">Estado <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="filter-dropdown" id="dd-estado" onclick="event.stopPropagation()">
+                  <div id="dd-estado-opts"></div>
+                  <div class="filter-actions"><span class="filter-clear" onclick="limpiarFiltroColumna('estado')">Limpiar</span></div>
+                </div>
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ordenes-table"></tbody>
+        </table>
+      </div></div>
+    </div>
+
+    <!-- NUEVA ORDEN -->
+    <div class="page" id="page-nueva">
+      <div class="page-header"><div class="page-title">Nueva orden</div></div>
+      <div id="nueva-lock" class="alert alert-warn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Solo capturistas y administradores pueden registrar órdenes.
+      </div>
+      <div class="form-card">
+        <div class="fsec">Datos de la venta <span class="fsec-sub">— lo que tienes al imprimir la guía</span></div>
+        <div class="frow">
+          <div class="fg"><label>No. de venta <span class="req">*</span></label><input id="f-venta" type="text" placeholder="2000012345678901"></div>
+          <div class="fg"><label>Fecha de venta <span class="req">*</span></label><input id="f-fv" type="date"></div>
+        </div>
+        <!-- MODELOS (soporte paquete multi-modelo, hasta 5) -->
+        <div class="fsec" style="margin-top:4px">Modelos / Piezas <span class="fsec-sub">— agrega hasta 5 modelos para paquetes</span></div>
+        <div id="modelos-container">
+          <div class="frow modelo-extra-frow" id="modelo-row-0">
+            <div class="fg" style="flex:2"><label>Modelo / SKU <span class="req">*</span></label><input id="f-modelo" type="text" placeholder="P145BSET"></div>
+            <div class="fg" style="flex:1"><label>Piezas <span class="req">*</span></label><input id="f-pzas" type="number" min="1" value="1"></div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <button class="btn-add-modelo" id="btn-add-modelo" type="button" onclick="agregarModeloExtra()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Agregar modelo al paquete
+          </button>
+          <span id="modelos-count-hint" style="font-size:11px;color:var(--text3);margin-left:8px"></span>
+        </div>
+
+        <div class="frow">
+          <div class="fg">
+            <label>Plataforma <span class="req">*</span></label>
+            <select id="f-plat" onchange="updateRazon()">
+              <option value="">Seleccionar...</option>
+              <option>ML PRIN</option><option>ML YAM</option><option>ML BOSE</option><option>ML BOSE AUDIO</option><option>ML CONNECT</option><option>ML SM</option><option>ELEKTRA</option><option>WALMART PRIN</option><option>WALMART SON</option><option>LIVERPOOL</option><option>LIVERPOOL SON</option><option>COPPEL</option><option>CLAROSHOP</option><option>TOTALSHOP</option><option>SHOPIFY</option><option>SHEIN</option><option>RAPPI</option><option>CHEDRAUI</option><option>TIKTOKSHOP</option>
+            </select>
+            <div id="razon-preview" style="display:none" class="razon-preview"></div>
+          </div>
+          <div class="fg"><label>Paquetería <span class="req">*</span></label>
+            <select id="f-pak">
+              <option value="">Seleccionar...</option>
+              <option>DHL</option><option>ESTAFETA</option><option>FEDEX</option><option>PAQUETEXPRESS</option><option>MERCADO ENVIOS</option><option>UPS</option><option>ENTREGA PERSONAL</option><option>COPPEL EXPRESS</option><option>TRANSGO</option><option>JYT</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Cliente <span class="req">*</span></label><input id="f-cliente" type="text" placeholder="Nombre del cliente"></div>
+          <div class="fg"><label>Teléfono <span class="opt-lbl">(opcional)</span></label><input id="f-tel" type="text" class="opt" placeholder="55 1234 5678"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Fecha de envío <span class="opt-lbl">(opcional)</span></label><input id="f-fe" type="date" class="opt"></div>
+          <div class="fg"><label>No. de rastreo <span class="opt-lbl">(opcional)</span></label><input id="f-rastreo" type="text" class="opt" placeholder="45262XXXXXX"></div>
+        </div>
+        <div class="frow full">
+          <div class="fg"><label>Observación <span class="opt-lbl">(opcional)</span></label><textarea id="f-obs" class="opt" placeholder="Envío flex, nota especial..."></textarea></div>
+        </div>
+        <div class="fsec" style="margin-top:8px">Datos opcionales <span class="fsec-sub">— se pueden completar más tarde</span></div>
+        <div class="frow">
+          <div class="fg"><label>Precio <span class="opt-lbl">(opcional)</span></label><input id="f-precio" type="number" class="opt" placeholder="0.00"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="guardarOrden()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Guardar orden
+          </button>
+          <button class="btn" onclick="limpiarForm()">Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SURTIDO / TRASPASO -->
+    <div class="page" id="page-surtido">
+      <div class="page-header"><div class="page-title">Surtido / Traspaso</div></div>
+      <div id="surtido-lock" class="alert alert-warn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Solo almacén puede operar esta pantalla.
+      </div>
+
+      <!-- RESUMEN TRASPASO DEL DÍA -->
+      <div class="section-lbl">Resumen de traspaso confirmado hoy</div>
+      <div class="resumen-card" id="resumen-card"></div>
+
+      <div class="tab-row" style="margin-top:20px">
+        <button class="tab-btn active" id="tab-hoy"    onclick="switchTab('tab-hoy','surtido')">Envíos de hoy</button>
+        <button class="tab-btn"        id="tab-post-s" onclick="switchTab('tab-post-s','surtido')">Envíos posteriores</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="ss-search" placeholder="Buscar por no. venta o modelo..." oninput="renderSurtido()">
+      </div>
+
+      <!-- TAB HOY -->
+      <div class="tab-content active" id="tab-hoy-content">
+        <div class="alert alert-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Órdenes con fecha de envío = hoy. Puedes marcar <strong>Surtido</strong> y <strong>Traspaso</strong> de forma independiente en cualquier orden.</span>
+        </div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Pzas</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Obs</th><th>Surtido</th><th>Traspaso</th></tr></thead>
+            <tbody id="surtido-hoy-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+
+      <!-- TAB POSTERIORES -->
+      <div class="tab-content" id="tab-post-s-content">
+        <div class="alert alert-orange">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Envíos de fechas futuras. Solo se hace el <strong>traspaso en sistema</strong> ahora. El surtido físico se marcará el día del envío cuando aparezcan en la pestaña de hoy.</span>
+        </div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Pzas</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Fecha envío</th><th>Traspaso sistema</th></tr></thead>
+            <tbody id="surtido-post-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- COBRO -->
+    <div class="page" id="page-cobro">
+      <div class="page-header"><div class="page-title">Anotar ticket de cobro</div></div>
+      <div id="cobro-lock" class="alert alert-warn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Solo cobranza puede operar esta pantalla.
+      </div>
+      <div class="alert alert-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Solo aparecen órdenes con traspaso confirmado. Captura el ticket en cada venta y al final presiona <strong>Asentar</strong> para guardar todo. Los tickets ya asentados se pueden editar en caso de error.</span>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="ck-search" placeholder="Buscar por no. venta, modelo o cliente..." oninput="renderCobro()">
+        <button class="btn btn-primary btn-sm" id="btn-asentar" onclick="asentarTickets()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Asentar tickets
+        </button>
+      </div>
+      <div class="table-wrap"><div class="table-scroll">
+        <table>
+          <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Traspaso</th><th style="min-width:180px">Ticket de cobro</th></tr></thead>
+          <tbody id="cobro-table"></tbody>
+        </table>
+      </div></div>
+    </div>
+
+    <!-- RESUMEN DE TRASPASOS (reporte) -->
+    <div class="page" id="page-posteriores">
+      <div class="page-header"><div class="page-title">Resumen de traspasos</div></div>
+      <div class="alert alert-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Sumatoria de piezas traspasadas hoy en sistema, agrupadas por modelo y razón social. Filtra por razón social y copia el resumen para capturarlo en sistema.</span>
+      </div>
+
+      <div class="filter-bar">
+        <label style="font-size:12px;color:var(--text2);font-weight:500">Razón social:</label>
+        <select id="rt-rs" onchange="renderResumenTraspasos()">
+          <option value="">Todas</option>
+          <option>Sonoline</option><option>Alberto Ayala</option>
+        </select>
+        <button class="btn btn-accent btn-sm" onclick="copiarResumenTraspasos()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar resumen
+        </button>
+      </div>
+
+      <div class="resumen-card" id="post-resumen-card"></div>
+    </div>
+
+    <!-- CANCELACIONES -->
+    <div class="page" id="page-cancelaciones">
+      <div class="page-header"><div class="page-title">Cancelaciones</div></div>
+      <div class="alert alert-red">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <span>Órdenes canceladas con acciones pendientes por equipo.</span>
+      </div>
+      <div class="tab-row">
+        <button class="tab-btn active" id="canc-alm" onclick="switchTab('canc-alm','cancelaciones')">Almacén</button>
+        <button class="tab-btn" id="canc-cob" onclick="switchTab('canc-cob','cancelaciones')">Cobranza</button>
+        <button class="tab-btn" id="canc-all" onclick="switchTab('canc-all','cancelaciones')">Todas</button>
+      </div>
+      <div class="tab-content active" id="canc-alm-content">
+        <div class="section-lbl">Devoluciones pendientes — Almacén</div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Pzas</th><th>Razón social</th><th>Paquetería</th><th>Estaba surtida</th><th>Tenía traspaso</th><th>Pendiente</th></tr></thead>
+            <tbody id="canc-alm-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+      <div class="tab-content" id="canc-cob-content">
+        <div class="section-lbl">Tickets a cancelar — Cobranza</div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Ticket cobro</th><th>Acción requerida</th></tr></thead>
+            <tbody id="canc-cob-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+      <div class="tab-content" id="canc-all-content">
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Cliente</th><th>Surtido</th><th>Traspaso</th><th>Ticket cobro</th><th>Cancelado por</th></tr></thead>
+            <tbody id="canc-all-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="page" id="page-historial">
+      <div class="page-header">
+        <div class="page-title">Historial</div>
+        <button class="btn btn-sm" onclick="toast('En producción: exporta a Excel.')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar Excel
+        </button>
+      </div>
+      <div class="stats-row" id="hist-stats"></div>
+      <div class="table-wrap"><div class="table-scroll">
+        <table>
+          <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Surtido</th><th>Traspaso</th><th>Ticket Bbay</th><th>Ticket cobro</th><th>Última acción</th></tr></thead>
+          <tbody id="hist-table"></tbody>
+        </table>
+      </div></div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!-- ══ MÓDULO AMAZON — páginas separadas del General ══ -->
+    <!-- ════════════════════════════════════════════════════ -->
+
+    <!-- AMAZON: DASHBOARD -->
+    <div class="page" id="page-amz-dashboard">
+      <div class="page-header">
+        <div class="page-title">Dashboard Amazon</div>
+        <div style="font-size:12px;color:var(--text3)" id="amz-dash-date"></div>
+      </div>
+      <div class="stats-row" id="amz-stats-row"></div>
+      <div class="section-lbl">Todas las órdenes Amazon (incluye canceladas)</div>
+      <div class="filter-bar">
+        <input type="text" id="amz-dash-search" placeholder="No. venta, modelo, cliente..." oninput="renderAmzDashboard()">
+      </div>
+      <div class="table-wrap"><div class="table-scroll">
+        <table>
+          <thead><tr><th>No. venta</th><th>Modelo</th><th>Plataforma</th><th>Razón social</th><th>Cliente</th><th>Obs</th><th>Fecha envío</th><th>Surtido</th><th>Traspaso</th><th>Cobro</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="amz-dash-table"></tbody>
+        </table>
+      </div></div>
+    </div>
+
+    <!-- AMAZON: ÓRDENES -->
+    <div class="page" id="page-amz-ordenes">
+      <div class="page-header">
+        <div class="page-title">Órdenes Amazon</div>
+        <button class="btn btn-primary btn-sm" id="amz-btn-nueva-top" onclick="goPage('amz-nueva')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nueva orden
+        </button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="amz-s-search" placeholder="No. venta, modelo, cliente..." oninput="renderAmzOrdenes()">
+        <select id="amz-s-plat" onchange="renderAmzOrdenes()"><option value="">Todas las plataformas</option></select>
+        <select id="amz-s-rs" onchange="renderAmzOrdenes()">
+          <option value="">Todas las razones sociales</option>
+          <option>Sonoline</option><option>Alberto Ayala</option>
+        </select>
+        <select id="amz-s-estado" onchange="renderAmzOrdenes()">
+          <option value="">Todos</option>
+          <option value="activas">Solo activas</option>
+          <option value="CANCELADO">Canceladas</option>
+        </select>
+      </div>
+      <div class="table-wrap"><div class="table-scroll">
+        <table>
+          <thead><tr><th>No. venta</th><th>F. venta</th><th>Modelo</th><th>Pzas</th><th>Plataforma</th><th>Razón social</th><th>Cliente</th><th>Paquetería</th><th>F. envío</th><th>Surtido</th><th>Traspaso</th><th>Ticket Bbay</th><th>Ticket cobro</th><th></th></tr></thead>
+          <tbody id="amz-ordenes-table"></tbody>
+        </table>
+      </div></div>
+    </div>
+
+    <!-- AMAZON: NUEVA ORDEN -->
+    <div class="page" id="page-amz-nueva">
+      <div class="page-header"><div class="page-title">Nueva orden Amazon</div></div>
+      <div id="amz-nueva-lock" class="alert alert-warn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Solo capturistas y administradores pueden registrar órdenes.
+      </div>
+      <div class="form-card">
+        <div class="fsec">Datos de la venta <span class="fsec-sub">— módulo exclusivo Amazon</span></div>
+        <div class="frow">
+          <div class="fg"><label>No. de venta <span class="req">*</span></label><input id="amz-f-venta" type="text" placeholder="ID de pedido Amazon"></div>
+          <div class="fg"><label>Fecha de venta <span class="req">*</span></label><input id="amz-f-fv" type="date"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Modelo / SKU <span class="req">*</span></label><input id="amz-f-modelo" type="text" placeholder="ASIN o SKU"></div>
+          <div class="fg"><label>Piezas <span class="req">*</span></label><input id="amz-f-pzas" type="number" min="1" value="1"></div>
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>Plataforma <span class="req">*</span></label>
+            <select id="amz-f-plat" onchange="updateRazonAmz()">
+              <option value="">Seleccionar...</option>
+              <option>SELLER EX</option><option>PRIME</option><option>SELLER</option><option>SELLER AA</option><option>SELLER AA EX</option><option>PRIME DIRECTO</option>
+            </select>
+            <div id="amz-razon-preview" style="display:none" class="razon-preview"></div>
+          </div>
+          <div class="fg"><label>Paquetería <span class="req">*</span></label>
+            <select id="amz-f-pak">
+              <option value="">Seleccionar...</option>
+              <option>ESTAFETA</option><option>DHL</option><option>EASY SHIP</option><option>FEDEX</option><option>AMAZON</option><option>AMAZON DIRECTO</option><option>AMZ</option><option>TBM</option><option>AMZ TBM</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Cliente <span class="req">*</span></label><input id="amz-f-cliente" type="text" placeholder="Nombre del cliente"></div>
+          <div class="fg"><label>Teléfono <span class="opt-lbl">(opcional)</span></label><input id="amz-f-tel" type="text" class="opt" placeholder="55 1234 5678"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Fecha de envío <span class="opt-lbl">(opcional)</span></label><input id="amz-f-fe" type="date" class="opt"></div>
+          <div class="fg"><label>No. de rastreo <span class="opt-lbl">(opcional)</span></label><input id="amz-f-rastreo" type="text" class="opt" placeholder="Tracking ID"></div>
+        </div>
+        <div class="frow full">
+          <div class="fg"><label>Observación <span class="opt-lbl">(opcional)</span></label><textarea id="amz-f-obs" class="opt" placeholder="Nota especial..."></textarea></div>
+        </div>
+        <div class="fsec" style="margin-top:8px">Datos que llegan después <span class="fsec-sub">— se pueden completar más tarde</span></div>
+        <div class="frow">
+          <div class="fg"><label>Ticket Bbay <span class="opt-lbl">(llega al cobrar)</span></label><input id="amz-f-ticket" type="text" class="opt" placeholder="TK 09800"></div>
+          <div class="fg"><label>Precio <span class="opt-lbl">(opcional)</span></label><input id="amz-f-precio" type="number" class="opt" placeholder="0.00"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="guardarOrdenAmz()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Guardar orden
+          </button>
+          <button class="btn" onclick="limpiarFormAmz()">Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AMAZON: SURTIDO / TRASPASO -->
+    <div class="page" id="page-amz-surtido">
+      <div class="page-header"><div class="page-title">Surtido / Traspaso Amazon</div></div>
+      <div id="amz-surtido-lock" class="alert alert-warn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Solo almacén puede operar esta pantalla.
+      </div>
+      <div class="section-lbl">Resumen de traspaso confirmado hoy</div>
+      <div class="resumen-card" id="amz-resumen-card"></div>
+      <div class="tab-row" style="margin-top:20px">
+        <button class="tab-btn active" id="amz-tab-hoy"    onclick="switchTab('amz-tab-hoy','amz-surtido')">Envíos de hoy</button>
+        <button class="tab-btn"        id="amz-tab-post-s" onclick="switchTab('amz-tab-post-s','amz-surtido')">Envíos posteriores</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="amz-ss-search" placeholder="Buscar por no. venta o modelo..." oninput="renderSurtidoAmz()">
+      </div>
+      <div class="tab-content active" id="amz-tab-hoy-content">
+        <div class="alert alert-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Órdenes con fecha de envío = hoy. Puedes marcar <strong>Surtido</strong> y <strong>Traspaso</strong> de forma independiente en cualquier orden.</span>
+        </div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Pzas</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Obs</th><th>Surtido</th><th>Traspaso</th></tr></thead>
+            <tbody id="amz-surtido-hoy-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+      <div class="tab-content" id="amz-tab-post-s-content">
+        <div class="alert alert-orange">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Envíos de fechas futuras. Solo se hace el <strong>traspaso en sistema</strong> ahora.</span>
+        </div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Pzas</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Fecha envío</th><th>Traspaso sistema</th></tr></thead>
+            <tbody id="amz-surtido-post-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- AMAZON: COBRO -->
+    <div class="page" id="page-amz-cobro">
+      <div class="page-header"><div class="page-title">Anotar ticket de cobro Amazon</div></div>
+      <div id="amz-cobro-lock" class="alert alert-warn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Solo cobranza puede operar esta pantalla.
+      </div>
+      <div class="alert alert-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Solo aparecen órdenes con traspaso confirmado. Captura el ticket y presiona <strong>Asentar</strong>.</span>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="amz-ck-search" placeholder="Buscar por no. venta, modelo o cliente..." oninput="renderCobroAmz()">
+        <button class="btn btn-primary btn-sm" id="amz-btn-asentar" onclick="asentarTicketsAmz()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Asentar tickets
+        </button>
+      </div>
+      <div class="table-wrap"><div class="table-scroll">
+        <table>
+          <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Plataforma</th><th>Cliente</th><th>Traspaso</th><th style="min-width:180px">Ticket de cobro</th></tr></thead>
+          <tbody id="amz-cobro-table"></tbody>
+        </table>
+      </div></div>
+    </div>
+
+    <!-- AMAZON: RESUMEN DE TRASPASOS -->
+    <div class="page" id="page-amz-resumen">
+      <div class="page-header"><div class="page-title">Resumen de traspasos Amazon</div></div>
+      <div class="alert alert-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Sumatoria de piezas traspasadas hoy, agrupadas por modelo y razón social.</span>
+      </div>
+      <div class="filter-bar">
+        <label style="font-size:12px;color:var(--text2);font-weight:500">Razón social:</label>
+        <select id="amz-rt-rs" onchange="renderResumenTraspasosAmz()">
+          <option value="">Todas</option>
+          <option>Sonoline</option><option>Alberto Ayala</option>
+        </select>
+        <button class="btn btn-accent btn-sm" onclick="copiarResumenTraspasosAmz()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar resumen
+        </button>
+      </div>
+      <div class="resumen-card" id="amz-post-resumen-card"></div>
+    </div>
+
+    <!-- AMAZON: CANCELACIONES -->
+    <div class="page" id="page-amz-cancelaciones">
+      <div class="page-header"><div class="page-title">Cancelaciones Amazon</div></div>
+      <div class="alert alert-red">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <span>Órdenes canceladas con acciones pendientes por equipo.</span>
+      </div>
+      <div class="tab-row">
+        <button class="tab-btn active" id="amz-canc-alm" onclick="switchTab('amz-canc-alm','amz-cancelaciones')">Almacén</button>
+        <button class="tab-btn" id="amz-canc-cob" onclick="switchTab('amz-canc-cob','amz-cancelaciones')">Cobranza</button>
+        <button class="tab-btn" id="amz-canc-all" onclick="switchTab('amz-canc-all','amz-cancelaciones')">Todas</button>
+      </div>
+      <div class="tab-content active" id="amz-canc-alm-content">
+        <div class="section-lbl">Devoluciones pendientes — Almacén</div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Pzas</th><th>Razón social</th><th>Paquetería</th><th>Estaba surtida</th><th>Tenía traspaso</th><th>Pendiente</th></tr></thead>
+            <tbody id="amz-canc-alm-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+      <div class="tab-content" id="amz-canc-cob-content">
+        <div class="section-lbl">Tickets a cancelar — Cobranza</div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Ticket cobro</th><th>Acción requerida</th></tr></thead>
+            <tbody id="amz-canc-cob-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+      <div class="tab-content" id="amz-canc-all-content">
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>No. venta</th><th>Modelo</th><th>Razón social</th><th>Cliente</th><th>Surtido</th><th>Traspaso</th><th>Ticket cobro</th><th>Cancelado por</th></tr></thead>
+            <tbody id="amz-canc-all-table"></tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="modal-det" onclick="if(event.target===this)closeModal('modal-det')">
+  <div class="modal">
+    <div class="modal-title" id="modal-det-title">Detalle</div>
+    <div id="modal-det-body"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <button class="btn btn-danger btn-sm" id="modal-cancel-btn" onclick="currentDetEsAmz?solicitarCancelacionAmz(currentDetId):solicitarCancelacion(currentDetId)">✕ Cancelar orden</button>
+      <button class="btn btn-sm" id="modal-edit-btn" onclick="closeModal('modal-det');abrirEditar(currentDetId,currentDetEsAmz)" style="display:none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </button>
+      <button class="btn" onclick="closeModal('modal-det')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CANCELACION -->
+<div class="modal-overlay" id="modal-canc" onclick="if(event.target===this)closeModal('modal-canc')">
+  <div class="modal">
+    <div class="modal-title" id="modal-canc-title">Cancelar orden</div>
+    <div id="modal-canc-body"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <button class="btn btn-danger" onclick="confirmarCancelacion()">Confirmar cancelación</button>
+      <button class="btn" onclick="closeModal('modal-canc')">No cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CATÁLOGOS ──────────────────────────────────────────────
+const RAZON_SOCIAL = {
+  'ELEKTRA':'Sonoline','ML BOSE':'Sonoline','ML YAM':'Sonoline','ML PRIN':'Sonoline',
+  'WALMART SON':'Sonoline','LIVERPOOL':'Sonoline','CLAROSHOP':'Sonoline',
+  'TOTALSHOP':'Sonoline','SHOPIFY':'Sonoline','COPPEL':'Sonoline','SHEIN':'Sonoline',
+  'RAPPI':'Sonoline','CHEDRAUI':'Sonoline','TIKTOKSHOP':'Sonoline',
+  'ML CONNECT':'Alberto Ayala','ML SM':'Alberto Ayala','ML BOSE AUDIO':'Alberto Ayala',
+  'WALMART PRIN':'Alberto Ayala','LIVERPOOL SON':'Alberto Ayala'
+};
+const PLATS = Object.keys(RAZON_SOCIAL);
+const TODAY = new Date().toISOString().slice(0,10);
+
+let role = 'captura';
+let currentDetId = null;
+let currentDetEsAmz = false; // true si el detalle abierto es de una orden Amazon
+let pendingCancelId = null;
+let pendingCancelEsAmz = false; // true si la cancelación pendiente es de Amazon
+
+// IMPORTANTE: aquí defines dónde vive tu backend.
+// Mientras pruebas en tu computadora, es esta dirección local.
+// Cuando lo despleguemos, vamos a cambiar esto por el link real del servidor.
+const API_BASE = 'http://127.0.0.1:5000/api';
+
+// Ya no escribimos las órdenes a mano: empezamos vacío y se llena
+// pidiéndole la lista real al backend con cargarOrdenes()
+let orders = [];
+let nextId = 9;
+
+// ── MÓDULO AMAZON: su propio catálogo y su propia variable de datos ──
+const RAZON_SOCIAL_AMZ = {
+  'SELLER EX': 'Sonoline',
+  'PRIME': 'Sonoline',
+  'SELLER': 'Sonoline',
+  'SELLER AA': 'Alberto Ayala',
+  'SELLER AA EX': 'Alberto Ayala',
+  'PRIME DIRECTO': 'Sonoline'
+};
+const PLATS_AMZ = Object.keys(RAZON_SOCIAL_AMZ);
+let ordersAmz = []; // completamente separado de "orders" — su propio cajón en memoria también
+let moduloActivo = 'general';
+
+// ── ESTADO DE FILTROS DE ÓRDENES ─────────────────────────
+let statsVisible = true;
+const colFiltros = { plat: new Set(), rs: new Set(), pak: new Set(), surtido: new Set(), traspaso: new Set(), estado: new Set() };
+const filtroFechas = { fv: {desde:'', hasta:''}, fe: {desde:'', hasta:''} };
+let filtroModeloTexto = '';
+let filtroTicketTexto = '';
+
+// ── ESTADO PAQUETE MULTI-MODELO ───────────────────────────
+let modelosExtras = []; // {id, modelo, pzas} — filas adicionales en form Nueva Orden
+
+// ── ESTADO EDICIÓN ────────────────────────────────────────
+let editOrdenId = null;
+let editEsAmz = false;
+
+// ── ESTADO NOTIFICACIONES ─────────────────────────────────
+const notificaciones = [];
+let notifNoLeidas = 0;
+
+const roleLabel={captura:'Capturista',almacen:'Almacén',cobranza:'Cobranza',admin:'Admin'};
+const roleCls={captura:'rb-captura',almacen:'rb-almacen',cobranza:'rb-cobranza',admin:'rb-admin'};
+
+function canDo(a){return role==='admin'||role===a;}
+function getRazon(plat){return RAZON_SOCIAL[plat]||'';}
+function getRazonAmz(plat){return RAZON_SOCIAL_AMZ[plat]||'';}
+function isHoy(fe){return fe===TODAY;}
+function isPosterior(fe){return fe&&fe>TODAY;}
+function fmt(d){if(!d)return'-';return new Date(d+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short'});}
+function now(){const d=new Date();return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});}
+
+function rsTag(rs){
+  if(!rs)return'-';
+  return `<span class="tag ${rs==='Sonoline'?'tag-son':'tag-aya'}">${rs}</span>`;
+}
+function chkSurtido(done){
+  return done
+    ?`<span class="chk chk-done-s">✓ Surtido</span>`
+    :`<span class="chk chk-pend">· Pendiente</span>`;
+}
+function chkTraspaso(done){
+  return done
+    ?`<span class="chk chk-done-t">⇄ Traspasado</span>`
+    :`<span class="chk chk-pend">· Pendiente</span>`;
+}
+function chkCobro(tk){
+  return tk
+    ?`<span class="chk chk-done-t" style="background:var(--purple-bg);color:var(--purple);border-color:rgba(167,139,250,.3)">★ ${tk}</span>`
+    :`<span class="chk chk-pend">· Pendiente</span>`;
+}
+
+// ── NAV ───────────────────────────────────────────────────
+function switchRole(r){
+  role=r;
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.toggle('active',b.dataset.role===r));
+  const b=document.getElementById('role-badge');
+  b.textContent=roleLabel[r];b.className='role-badge '+roleCls[r];
+  updateNav();renderAll();
+}
+
+// Cambia entre el módulo General y el módulo Amazon: oculta/muestra
+// las secciones correspondientes de la sidebar y navega a su dashboard.
+function cambiarModulo(m){
+  moduloActivo = m;
+  const navsGeneral = ['nav-ordenes','nav-nueva','nav-surtido','nav-cobro','nav-posteriores','nav-cancelaciones','nav-historial'];
+  const seccionesGeneral = document.querySelectorAll('.sidebar > .sidebar-section:not(.nav-amazon)');
+
+  if(m === 'amazon'){
+    navsGeneral.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+    seccionesGeneral.forEach(el=>{ if(!el.classList.contains('nav-amazon')) el.style.display='none'; });
+    document.querySelectorAll('.nav-amazon').forEach(el=>el.style.display='');
+    goPage('amz-dashboard');
+  } else {
+    navsGeneral.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=''; });
+    seccionesGeneral.forEach(el=>{ el.style.display=''; });
+    document.querySelectorAll('.nav-amazon').forEach(el=>el.style.display='none');
+    goPage('ordenes');
+  }
+  updateNav();
+}
+
+function updateNav(){
+  document.getElementById('nav-nueva').classList.toggle('disabled',!canDo('captura'));
+  document.getElementById('nav-surtido').classList.toggle('disabled',!canDo('almacen'));
+  document.getElementById('nav-cobro').classList.toggle('disabled',!canDo('cobranza'));
+  document.getElementById('nav-historial').classList.toggle('disabled',!canDo('admin'));
+  const bn=document.getElementById('btn-nueva-top');if(bn)bn.style.display=canDo('captura')?'':'none';
+  const mb=document.getElementById('modal-cancel-btn');if(mb)mb.style.display=canDo('captura')?'':'none';
+  const eb=document.getElementById('modal-edit-btn');if(eb)eb.style.display=canDo('captura')?'':'none';
+
+  // Amazon: mismas reglas de permisos que el módulo General
+  const navAmzNueva=document.getElementById('nav-amz-nueva');
+  if(navAmzNueva) navAmzNueva.classList.toggle('disabled',!canDo('captura'));
+  const navAmzSurtido=document.getElementById('nav-amz-surtido');
+  if(navAmzSurtido) navAmzSurtido.classList.toggle('disabled',!canDo('almacen'));
+  const navAmzCobro=document.getElementById('nav-amz-cobro');
+  if(navAmzCobro) navAmzCobro.classList.toggle('disabled',!canDo('cobranza'));
+  const amzBn=document.getElementById('amz-btn-nueva-top');
+  if(amzBn) amzBn.style.display=canDo('captura')?'':'none';
+  const amzBtnAsentar=document.getElementById('amz-btn-asentar');
+  if(amzBtnAsentar) amzBtnAsentar.style.display=canDo('cobranza')?'':'none';
+}
+function goPage(p){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  const n=document.getElementById('nav-'+p);if(n)n.classList.add('active');
+  if(p.startsWith('amz-')){ renderAllAmz(); } else { renderAll(); }
+}
+function switchTab(tabId,section){
+  const mapa={
+    'surtido':['tab-hoy','tab-post-s'],
+    'cancelaciones':['canc-alm','canc-cob','canc-all'],
+    'amz-surtido':['amz-tab-hoy','amz-tab-post-s'],
+    'amz-cancelaciones':['amz-canc-alm','amz-canc-cob','amz-canc-all']
+  };
+  const ids=mapa[section]||[];
+  ids.forEach(id=>{
+    document.getElementById(id).classList.toggle('active',id===tabId);
+    document.getElementById(id+'-content').classList.toggle('active',id===tabId);
+  });
+}
+
+// ── DASHBOARD (alias — pantalla fusionada con Órdenes) ────
+function renderDashboard(){ renderOrdenes(); }
+
+// ── ESTADÍSTICAS TOGGLE ───────────────────────────────────
+function toggleStats(){
+  statsVisible = !statsVisible;
+  document.getElementById('stats-row').classList.toggle('hidden', !statsVisible);
+  document.getElementById('stats-toggle-btn').classList.toggle('active', statsVisible);
+}
+
+// ── FILTROS TIPO EXCEL ────────────────────────────────────
+function toggleFilterDropdown(event, ddId){
+  event.stopPropagation();
+  const dd = document.getElementById(ddId);
+  const yaAbierto = dd.classList.contains('open');
+  cerrarDropdowns();
+  if(!yaAbierto){ poblarDropdown(ddId); dd.classList.add('open'); }
+}
+
+function cerrarDropdowns(event){
+  if(event && event.target.closest('.filter-dropdown')) return;
+  document.querySelectorAll('.filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+}
+
+function poblarDropdown(ddId){
+  // Los dropdowns de fecha y texto manejan su propio contenido en el HTML
+  if(['dd-fv','dd-fe','dd-modelo','dd-ticket'].includes(ddId)) return;
+  const colMap = {'dd-plat':'plat','dd-rs':'rs','dd-pak':'pak','dd-surtido':'surtido','dd-traspaso':'traspaso','dd-estado':'estado'};
+  const col = colMap[ddId];
+  const optsEl = document.getElementById(ddId+'-opts');
+  if(!optsEl || !col) return;
+  let valores;
+  if(col==='surtido') valores=['Surtido','Pendiente'];
+  else if(col==='traspaso') valores=['Traspasado','Pendiente'];
+  else if(col==='estado') valores=['Activa','Cancelada'];
+  else valores=[...new Set(orders.map(o=>o[col]).filter(Boolean))].sort();
+  optsEl.innerHTML=valores.map(v=>`
+    <label class="filter-option">
+      <input type="checkbox" value="${v}" ${colFiltros[col].has(v)?'checked':''}
+        onchange="toggleFiltroValor('${col}','${v}',this.checked)">
+      ${col==='plat'?`<span class="tag">${v}</span>`:col==='rs'?rsTag(v):v}
+    </label>`).join('');
+}
+
+function filtrarOpciones(input, ddId){
+  const q=input.value.toLowerCase();
+  document.querySelectorAll(`#${ddId}-opts .filter-option`).forEach(el=>{
+    el.style.display=el.textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+function toggleFiltroValor(col, valor, checked){
+  if(checked) colFiltros[col].add(valor); else colFiltros[col].delete(valor);
+  actualizarEncabezadoFiltro(col);
+  renderOrdenes();
+}
+
+function actualizarEncabezadoFiltro(col){
+  const thMap={plat:'th-plat',rs:'th-rs',pak:'th-pak',surtido:'th-surtido',traspaso:'th-traspaso',estado:'th-estado'};
+  const th=document.getElementById(thMap[col]);
+  if(th) th.classList.toggle('filtered', colFiltros[col].size>0);
+  _actualizarBtnLimpiar();
+}
+
+function actualizarEncabezadoFiltroExtra(key, activo){
+  const thMap={modelo:'th-modelo',ticket:'th-ticket'};
+  const th=document.getElementById(thMap[key]);
+  if(th) th.classList.toggle('filtered', activo);
+  _actualizarBtnLimpiar();
+}
+
+function _actualizarBtnLimpiar(){
+  const hay=Object.values(colFiltros).some(s=>s.size>0)
+    ||filtroFechas.fv.desde||filtroFechas.fv.hasta
+    ||filtroFechas.fe.desde||filtroFechas.fe.hasta
+    ||filtroModeloTexto||filtroTicketTexto;
+  const btn=document.getElementById('btn-clear-filters');
+  if(btn) btn.style.display=hay?'':'none';
+}
+
+function limpiarFiltroColumna(col){
+  colFiltros[col].clear(); actualizarEncabezadoFiltro(col); renderOrdenes(); cerrarDropdowns();
+}
+
+function limpiarFiltrosColumna(){
+  Object.keys(colFiltros).forEach(col=>{colFiltros[col].clear();actualizarEncabezadoFiltro(col);});
+  limpiarFiltroFecha('fv'); limpiarFiltroFecha('fe');
+  limpiarFiltroModelo(); limpiarFiltroTicket();
+  renderOrdenes();
+}
+
+function aplicarFiltroFecha(campo){
+  filtroFechas[campo].desde=(document.getElementById(campo+'-desde')||{}).value||'';
+  filtroFechas[campo].hasta=(document.getElementById(campo+'-hasta')||{}).value||'';
+  const th=document.getElementById('th-'+campo);
+  if(th) th.classList.toggle('filtered', !!(filtroFechas[campo].desde||filtroFechas[campo].hasta));
+  _actualizarBtnLimpiar(); renderOrdenes();
+}
+
+function limpiarFiltroFecha(campo){
+  filtroFechas[campo]={desde:'',hasta:''};
+  const d=document.getElementById(campo+'-desde'); if(d) d.value='';
+  const h=document.getElementById(campo+'-hasta'); if(h) h.value='';
+  const th=document.getElementById('th-'+campo); if(th) th.classList.remove('filtered');
+  _actualizarBtnLimpiar(); renderOrdenes();
+}
+
+function filtrarModeloTexto(val){
+  filtroModeloTexto=val.trim().toLowerCase();
+  const opts=document.getElementById('dd-modelo-opts');
+  if(!opts) return;
+  if(!filtroModeloTexto){ opts.innerHTML=''; renderOrdenes(); return; }
+  const matches=[...new Set(orders.map(o=>o.modelo).filter(m=>m.toLowerCase().includes(filtroModeloTexto)))].slice(0,10);
+  opts.innerHTML=matches.map(m=>`<div class="filter-option" onclick="seleccionarModelo('${m.replace(/'/g,"\\'")}')">${m.replace(new RegExp(filtroModeloTexto,'gi'),s=>`<mark>${s}</mark>`)}</div>`).join('');
+  actualizarEncabezadoFiltroExtra('modelo',!!filtroModeloTexto); renderOrdenes();
+}
+
+function seleccionarModelo(m){
+  filtroModeloTexto=m.toLowerCase();
+  const inp=document.getElementById('modelo-filter-input'); if(inp) inp.value=m;
+  document.getElementById('dd-modelo-opts').innerHTML='';
+  actualizarEncabezadoFiltroExtra('modelo',true); renderOrdenes(); cerrarDropdowns();
+}
+
+function limpiarFiltroModelo(){
+  filtroModeloTexto='';
+  const inp=document.getElementById('modelo-filter-input'); if(inp) inp.value='';
+  const opts=document.getElementById('dd-modelo-opts'); if(opts) opts.innerHTML='';
+  actualizarEncabezadoFiltroExtra('modelo',false); renderOrdenes(); cerrarDropdowns();
+}
+
+function filtrarTicketTexto(val){
+  filtroTicketTexto=val.trim().toLowerCase();
+  const opts=document.getElementById('dd-ticket-opts');
+  if(!opts) return;
+  if(!filtroTicketTexto){ opts.innerHTML=''; renderOrdenes(); return; }
+  const matches=[...new Set(orders.filter(o=>o.ticketCobro).map(o=>o.ticketCobro).filter(t=>t.toLowerCase().includes(filtroTicketTexto)))].slice(0,8);
+  opts.innerHTML=matches.map(t=>`<div class="filter-option" onclick="seleccionarTicket('${t.replace(/'/g,"\\'")}')">${t}</div>`).join('');
+  actualizarEncabezadoFiltroExtra('ticket',!!filtroTicketTexto); renderOrdenes();
+}
+
+function seleccionarTicket(t){
+  filtroTicketTexto=t.toLowerCase();
+  const inp=document.getElementById('ticket-filter-input'); if(inp) inp.value=t;
+  document.getElementById('dd-ticket-opts').innerHTML='';
+  actualizarEncabezadoFiltroExtra('ticket',true); renderOrdenes(); cerrarDropdowns();
+}
+
+function limpiarFiltroTicket(){
+  filtroTicketTexto='';
+  const inp=document.getElementById('ticket-filter-input'); if(inp) inp.value='';
+  const opts=document.getElementById('dd-ticket-opts'); if(opts) opts.innerHTML='';
+  actualizarEncabezadoFiltroExtra('ticket',false); renderOrdenes(); cerrarDropdowns();
+}
+
+// ── ÓRDENES (fusionada con Dashboard) ────────────────────
+function renderOrdenes(){
+  // Estadísticas
+  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const activos=orders.filter(o=>!o.cancelado);
+  const sinSurtir=activos.filter(o=>isHoy(o.fe)&&!o.surtido).length;
+  const sinTrasp=activos.filter(o=>!o.traspaso).length;
+  const sinTk=activos.filter(o=>o.traspaso&&!o.ticketCobro).length;
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Órdenes activas</div><div class="stat-val">${activos.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Sin surtir hoy</div><div class="stat-val" style="color:var(--amber)">${sinSurtir}</div><div class="stat-sub">envíos del día</div></div>
+    <div class="stat-card"><div class="stat-label">Sin traspaso</div><div class="stat-val" style="color:var(--accent)">${sinTrasp}</div><div class="stat-sub">piezas en inventario</div></div>
+    <div class="stat-card"><div class="stat-label">Pendiente cobro</div><div class="stat-val" style="color:var(--purple)">${sinTk}</div></div>`;
+  document.getElementById('badge-pend').textContent=sinSurtir;
+  document.getElementById('badge-canc').textContent=orders.filter(o=>o.cancelado).length;
+
+  // Buscador de texto libre
+  const q=(document.getElementById('s-search')?.value||'').toLowerCase();
+
+  // Detectar números de venta que son paquete (aparecen en más de 1 fila)
+  const ventaCount={};
+  orders.forEach(o=>{ ventaCount[o.venta]=(ventaCount[o.venta]||0)+1; });
+
+  // Aplicar todos los filtros combinados
+  const f=orders.filter(o=>{
+    if(q&&!`${o.venta} ${o.modelo} ${o.cliente}`.toLowerCase().includes(q)) return false;
+    if(colFiltros.plat.size  && !colFiltros.plat.has(o.plat))  return false;
+    if(colFiltros.rs.size    && !colFiltros.rs.has(o.rs))      return false;
+    if(colFiltros.pak.size   && !colFiltros.pak.has(o.pak))    return false;
+    if(colFiltros.surtido.size){
+      if(!colFiltros.surtido.has(o.surtido?'Surtido':'Pendiente')) return false;
+    }
+    if(colFiltros.traspaso.size){
+      if(!colFiltros.traspaso.has(o.traspaso?'Traspasado':'Pendiente')) return false;
+    }
+    if(colFiltros.estado.size){
+      if(!colFiltros.estado.has(o.cancelado?'Cancelada':'Activa')) return false;
+    }
+    if(filtroFechas.fv.desde && (o.fv||'')<filtroFechas.fv.desde) return false;
+    if(filtroFechas.fv.hasta && (o.fv||'')>filtroFechas.fv.hasta) return false;
+    if(filtroFechas.fe.desde && (o.fe||'')<filtroFechas.fe.desde) return false;
+    if(filtroFechas.fe.hasta && (o.fe||'')>filtroFechas.fe.hasta) return false;
+    if(filtroModeloTexto && !o.modelo.toLowerCase().includes(filtroModeloTexto)) return false;
+    if(filtroTicketTexto && !(o.ticketCobro||'').toLowerCase().includes(filtroTicketTexto)) return false;
+    return true;
+  });
+
+  document.getElementById('ordenes-table').innerHTML=f.length?[...f].reverse().map(o=>{
+    const esPaq=ventaCount[o.venta]>1&&o.venta;
+    const rowCls=o.cancelado?'row-cancel':esPaq?'row-paquete':'';
+    const editBtn=(canDo('captura')&&!o.cancelado)?`<button class="btn btn-sm" title="Editar" onclick="event.stopPropagation();abrirEditar(${o.id},false)" style="margin-right:4px">✏️</button>`:'';
+    const cancBtn=(canDo('captura')&&!o.cancelado)?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();solicitarCancelacion(${o.id})">✕</button>`:'';
+    return `<tr class="${rowCls}" onclick="showDet(${o.id})" style="cursor:pointer">
+      <td><a class="link no-v" onclick="event.stopPropagation();showDet(${o.id})">${o.venta||'-'}${esPaq?'<span class="paquete-badge">PKG</span>':''}</a></td>
+      <td>${fmt(o.fv)}</td>
+      <td><strong>${o.modelo}</strong></td>
+      <td>${o.pzas}</td>
+      <td><span class="tag">${o.plat}</span></td>
+      <td>${rsTag(o.rs)}</td>
+      <td>${o.cliente}</td>
+      <td>${o.pak}</td>
+      <td style="${isPosterior(o.fe)&&!o.cancelado?'color:var(--orange);font-weight:600':''}">${fmt(o.fe)}${isPosterior(o.fe)&&!o.cancelado?' ⚑':''}</td>
+      <td class="obs-cell" title="${o.obs||''}">${o.obs||'-'}</td>
+      <td>${chkSurtido(o.surtido)}</td>
+      <td>${chkTraspaso(o.traspaso)}</td>
+      <td>${o.ticketCobro?`<span class="ok-txt">✓ ${o.ticketCobro}</span>`:'-'}</td>
+      <td>${o.cancelado?'<span class="chk" style="background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.3)">✕ Cancelada</span>':'<span class="chk chk-pend">Activa</span>'}</td>
+      <td style="white-space:nowrap">${editBtn}${cancBtn}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="15" style="text-align:center;padding:40px;color:var(--text3)">Sin resultados${orders.length>0?' — prueba ajustando los filtros':''}</td></tr>`;
+}
+
+// ── SURTIDO / TRASPASO ────────────────────────────────────
+function renderResumen(){
+  // Sumatoria de todo lo traspasado hoy (independiente de si es hoy o posterior)
+  const traspasados=orders.filter(o=>!o.cancelado&&o.traspaso);
+  const son=traspasados.filter(o=>o.rs==='Sonoline').reduce((a,o)=>a+o.pzas,0);
+  const aya=traspasados.filter(o=>o.rs==='Alberto Ayala').reduce((a,o)=>a+o.pzas,0);
+  const total=son+aya;
+  // detalle por modelo
+  const mapa={};
+  traspasados.forEach(o=>{
+    if(!mapa[o.modelo])mapa[o.modelo]={son:0,aya:0};
+    if(o.rs==='Sonoline')mapa[o.modelo].son+=o.pzas;
+    else mapa[o.modelo].aya+=o.pzas;
+  });
+  if(total===0){
+    document.getElementById('resumen-card').innerHTML=`<div style="padding:20px;text-align:center;color:var(--text3)">Aún no se han confirmado traspasos hoy</div>`;
+    return;
+  }
+  document.getElementById('resumen-card').innerHTML=`
+    <div class="resumen-header">
+      <span class="resumen-title">Total traspasado hoy</span>
+      <span style="font-size:12px;color:var(--text3)">${total} pza${total!==1?'s':''} · ${Object.keys(mapa).length} modelo${Object.keys(mapa).length!==1?'s':''}</span>
+    </div>
+    <div class="resumen-rs-block">
+      <div class="rs-big">
+        <div class="rs-big-label">Sonoline</div>
+        <div class="rs-big-val son">${son} pzas</div>
+      </div>
+      <div class="rs-divider"></div>
+      <div class="rs-big">
+        <div class="rs-big-label">Alberto Ayala</div>
+        <div class="rs-big-val aya">${aya} pzas</div>
+      </div>
+      <div class="rs-divider"></div>
+      <div class="rs-models">
+        ${Object.entries(mapa).map(([m,d])=>`
+          <span style="font-size:12px;color:var(--text2)"><strong style="color:var(--text)">${m}</strong>
+          ${d.son?`<span class="rs-badge rs-son" style="font-size:11px;padding:2px 7px">${d.son}pz Son</span>`:''}
+          ${d.aya?`<span class="rs-badge rs-aya" style="font-size:11px;padding:2px 7px">${d.aya}pz AA</span>`:''}</span>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderSurtido(){
+  const locked=!canDo('almacen');
+  document.getElementById('surtido-lock').style.display=locked?'flex':'none';
+  renderResumen();
+  const q=(document.getElementById('ss-search').value||'').toLowerCase();
+  const dis=locked?'style="opacity:.35;pointer-events:none"':'';
+
+  // HOY
+  const hoy=orders.filter(o=>!o.cancelado&&isHoy(o.fe)&&(!q||`${o.venta} ${o.modelo}`.toLowerCase().includes(q)));
+  document.getElementById('surtido-hoy-table').innerHTML=hoy.length?hoy.map(o=>`<tr>
+    <td class="no-v">${o.venta||'-'}</td>
+    <td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+    <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+    <td>${o.cliente}</td>
+    <td class="obs-cell" title="${o.obs}">${o.obs||'-'}</td>
+    <td>
+      ${o.surtido
+        ?`<span class="chk chk-done-s">✓ Surtido</span>`
+        :`<div ${dis}><button class="btn btn-success btn-sm" onclick="marcarSurtido(${o.id})">✓ Marcar surtido</button></div>`}
+    </td>
+    <td>
+      ${o.traspaso
+        ?`<span class="chk chk-done-t">⇄ Traspasado</span>`
+        :`<div ${dis}><button class="btn btn-accent btn-sm" onclick="marcarTraspaso(${o.id})">⇄ Marcar traspaso</button></div>`}
+    </td>
+  </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">No hay órdenes de hoy</td></tr>`;
+
+  // POSTERIORES
+  const post=orders.filter(o=>!o.cancelado&&isPosterior(o.fe)&&(!q||`${o.venta} ${o.modelo}`.toLowerCase().includes(q)));
+  document.getElementById('surtido-post-table').innerHTML=post.length?post.map(o=>`<tr>
+    <td class="no-v">${o.venta||'-'}</td>
+    <td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+    <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+    <td>${o.cliente}</td>
+    <td style="color:var(--orange);font-weight:600">${fmt(o.fe)} ⚑</td>
+    <td>
+      ${o.traspaso
+        ?`<span class="chk chk-done-t">⇄ Traspasado</span>`
+        :`<div ${dis}><button class="btn btn-accent btn-sm" onclick="marcarTraspaso(${o.id})">⇄ Marcar traspaso</button></div>`}
+    </td>
+  </tr>`).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">No hay envíos posteriores</td></tr>`;
+}
+
+// ── COBRO ────────────────────────────────────────────────
+function renderCobro(){
+  const locked=!canDo('cobranza');
+  document.getElementById('cobro-lock').style.display=locked?'flex':'none';
+  const btnAsentar=document.getElementById('btn-asentar');
+  if(btnAsentar) btnAsentar.style.display=locked?'none':'';
+  const q=(document.getElementById('ck-search').value||'').toLowerCase();
+  const f=orders.filter(o=>!o.cancelado&&o.traspaso&&(!q||`${o.venta} ${o.modelo} ${o.cliente}`.toLowerCase().includes(q)));
+  document.getElementById('cobro-table').innerHTML=f.length?f.map(o=>{
+    const tieneTicket=!!o.ticketCobro;
+    const inputCell=`<div class="btn-group" style="${locked?'opacity:.35;pointer-events:none':''}">
+        <input class="ticket-input" id="tk-${o.id}" placeholder="Núm. ticket" value="${o.ticketCobro||''}" data-orig="${o.ticketCobro||''}">
+        ${tieneTicket?`<span class="ok-txt" style="font-size:11px">✓ asentado</span>`:''}
+      </div>`;
+    return`<tr class="${!tieneTicket?'row-ready':''}">
+      <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+      <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+      <td>${o.cliente}</td>
+      <td>${chkTraspaso(o.traspaso)}</td>
+      <td>${inputCell}</td></tr>`;
+  }).join(''):`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">No hay órdenes con traspaso confirmado</td></tr>`;
+}
+
+async function asentarTickets(){
+  if(!canDo('cobranza')){toast('Solo cobranza puede asentar tickets','warn');return;}
+  const visibles=orders.filter(o=>!o.cancelado&&o.traspaso);
+
+  // Primero juntamos solo los cambios reales (igual que antes),
+  // pero en vez de modificar la memoria directamente, vamos a
+  // tocar la puerta del backend una vez por cada cambio.
+  const cambios=[];
+  visibles.forEach(o=>{
+    const inp=document.getElementById('tk-'+o.id);
+    if(!inp) return;
+    const val=inp.value.trim();
+    const orig=inp.dataset.orig||'';
+    if(val===orig) return;
+    if(!val) return;
+    cambios.push({id:o.id, ticket_cobro:val});
+  });
+
+  if(cambios.length===0){
+    toast('No hay cambios para asentar','warn');
+    return;
+  }
+
+  let exitosos=0, fallidos=0;
+  for(const cambio of cambios){
+    try{
+      const resp = await fetch(API_BASE + '/ordenes/' + cambio.id + '/ticket-cobro', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ticket_cobro: cambio.ticket_cobro})
+      });
+      if(resp.ok) exitosos++; else fallidos++;
+    }catch(err){
+      console.error(err);
+      fallidos++;
+    }
+  }
+
+  await cargarOrdenes();
+  renderAll();
+
+  if(fallidos===0){
+    toast(`Asentado: ${exitosos} ticket${exitosos!==1?'s':''}`);
+  }else{
+    toast(`Asentados ${exitosos}, fallaron ${fallidos}`, 'warn');
+  }
+}
+
+// ── RESUMEN DE TRASPASOS (reporte) ───────────────────────
+let lastResumenFilas=[]; // se guarda para poder copiarlo
+
+function renderResumenTraspasos(){
+  const rsFiltro=document.getElementById('rt-rs').value;
+
+  // Todo lo traspasado hoy en sistema, agrupado por MODELO + RAZÓN SOCIAL
+  const traspasadosHoy=orders.filter(o=>!o.cancelado&&o.traspaso&&(!rsFiltro||o.rs===rsFiltro));
+  const son=traspasadosHoy.filter(o=>o.rs==='Sonoline').reduce((a,o)=>a+o.pzas,0);
+  const aya=traspasadosHoy.filter(o=>o.rs==='Alberto Ayala').reduce((a,o)=>a+o.pzas,0);
+  const total=son+aya;
+
+  const mapa={};
+  traspasadosHoy.forEach(o=>{
+    const key=o.modelo+'|'+o.rs;
+    if(!mapa[key]) mapa[key]={modelo:o.modelo,rs:o.rs,pzas:0};
+    mapa[key].pzas+=o.pzas;
+  });
+  const filas=Object.values(mapa).sort((a,b)=>a.modelo.localeCompare(b.modelo)||a.rs.localeCompare(b.rs));
+  lastResumenFilas=filas;
+
+  if(total===0){
+    document.getElementById('post-resumen-card').innerHTML=`<div style="padding:24px;text-align:center;color:var(--text3)">Aún no se han confirmado traspasos hoy${rsFiltro?' para '+rsFiltro:''}</div>`;
+    return;
+  }
+  document.getElementById('post-resumen-card').innerHTML=`
+    <div class="resumen-header">
+      <span class="resumen-title">Traspasar en sistema — listo para copiar${rsFiltro?' · '+rsFiltro:''}</span>
+      <span style="font-size:12px;color:var(--text3)">${total} pza${total!==1?'s':''} totales${!rsFiltro?` · Sonoline ${son} · Alberto Ayala ${aya}`:''}</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Modelo</th>${rsFiltro?'':'<th>Razón social</th>'}<th>Piezas a traspasar</th></tr></thead>
+        <tbody>
+          ${filas.map(f=>`<tr>
+            <td><strong>${f.modelo}</strong></td>
+            ${rsFiltro?'':`<td>${rsTag(f.rs)}</td>`}
+            <td style="font-size:16px;font-weight:700;color:${f.rs==='Sonoline'?'var(--accent)':'var(--purple)'}">${f.pzas} pza${f.pzas!==1?'s':''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function copiarResumenTraspasos(){
+  const rsFiltro=document.getElementById('rt-rs').value;
+  if(!lastResumenFilas.length){toast('No hay datos para copiar','warn');return;}
+  const texto=lastResumenFilas.map(f=>rsFiltro?`${f.modelo}\t${f.pzas}`:`${f.modelo}\t${f.rs}\t${f.pzas}`).join('\n');
+  navigator.clipboard.writeText(texto).then(()=>{
+    toast(`Resumen copiado${rsFiltro?' ('+rsFiltro+')':''} — listo para pegar en sistema`);
+  }).catch(()=>{
+    toast('No se pudo copiar automáticamente','warn');
+  });
+}
+
+// ── CANCELACIONES ─────────────────────────────────────────
+function renderCancelaciones(){
+  const canc=orders.filter(o=>o.cancelado);
+  document.getElementById('badge-canc').textContent=canc.length;
+  // Almacén
+  const almPend=canc.filter(o=>o.surtidoPrevio||o.traspasoPrevio);
+  document.getElementById('canc-alm-table').innerHTML=almPend.length?almPend.map(o=>{
+    let pend='';
+    if(o.surtidoPrevio&&o.traspasoPrevio) pend='<span style="color:var(--red)">Devolver mercancía + revertir traspaso en sistema</span>';
+    else if(o.traspasoPrevio) pend='<span style="color:var(--red)">Revertir traspaso en sistema</span>';
+    else pend='<span style="color:var(--amber)">Devolver mercancía a inventario</span>';
+    return`<tr class="row-cancel">
+      <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+      <td>${rsTag(o.rs)}</td><td>${o.pak}</td>
+      <td>${o.surtidoPrevio?'<span class="chk chk-done-s">✓ Sí</span>':'<span class="chk chk-pend">No</span>'}</td>
+      <td>${o.traspasoPrevio?'<span class="chk chk-done-t">⇄ Sí</span>':'<span class="chk chk-pend">No</span>'}</td>
+      <td>${pend}</td></tr>`;
+  }).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pendientes de almacén</td></tr>`;
+  // Cobranza
+  const cobPend=canc.filter(o=>o.ticketCobro);
+  document.getElementById('canc-cob-table').innerHTML=cobPend.length?cobPend.map(o=>`<tr class="row-cancel">
+    <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+    <td>${rsTag(o.rs)}</td>
+    <td><span class="ok-txt">${o.ticketCobro}</span></td>
+    <td><span style="color:var(--red);font-weight:600">⚠ Cancelar ticket en sistema</span></td></tr>`).join('')
+    :`<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text3)">Sin tickets pendientes</td></tr>`;
+  // Todas
+  document.getElementById('canc-all-table').innerHTML=canc.length?canc.map(o=>`<tr>
+    <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+    <td>${rsTag(o.rs)}</td><td>${o.cliente}</td>
+    <td>${o.surtidoPrevio?'<span class="chk chk-done-s">✓</span>':'—'}</td>
+    <td>${o.traspasoPrevio?'<span class="chk chk-done-t">⇄</span>':'—'}</td>
+    <td>${o.ticketCobro?`<span class="ok-txt">${o.ticketCobro}</span>`:'-'}</td>
+    <td style="font-size:11px;color:var(--text3)">${o.log[o.log.length-1]?.w||'-'}</td></tr>`).join('')
+    :`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin cancelaciones</td></tr>`;
+}
+
+// ── HISTORIAL ─────────────────────────────────────────────
+function renderHistorial(){
+  const son=orders.filter(o=>!o.cancelado&&o.rs==='Sonoline').length;
+  const aya=orders.filter(o=>!o.cancelado&&o.rs==='Alberto Ayala').length;
+  const cob=orders.filter(o=>o.ticketCobro).length;
+  const canc=orders.filter(o=>o.cancelado).length;
+  document.getElementById('hist-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total registros</div><div class="stat-val">${orders.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Cobradas</div><div class="stat-val" style="color:var(--purple)">${cob}</div></div>
+    <div class="stat-card"><div class="stat-label">Sonoline / A.Ayala</div><div class="stat-val" style="font-size:18px;padding-top:4px">${son} <span style="color:var(--text3)">/</span> ${aya}</div></div>
+    <div class="stat-card"><div class="stat-label">Canceladas</div><div class="stat-val" style="color:var(--red)">${canc}</div></div>`;
+  document.getElementById('hist-table').innerHTML=[...orders].reverse().map(o=>`<tr onclick="showDet(${o.id})" style="cursor:pointer">
+    <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+    <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+    <td>${o.cliente}</td>
+    <td>${chkSurtido(o.surtido)}</td>
+    <td>${chkTraspaso(o.traspaso)}</td>
+    <td>${o.ticket||'<span class="sin">—</span>'}</td>
+    <td>${o.ticketCobro?`<span class="ok-txt">${o.ticketCobro}</span>`:'-'}</td>
+    <td style="font-size:11px;color:var(--text3)">${o.log[o.log.length-1]?.t||''}</td>
+  </tr>`).join('');
+}
+
+// ── ACCIONES ──────────────────────────────────────────────
+async function marcarSurtido(id){
+  if(!canDo('almacen')){toast('Solo almacén puede marcar surtido','warn');return;}
+  try{
+    const resp = await fetch(API_BASE + '/ordenes/' + id + '/surtido', {method: 'PUT'});
+    const data = await resp.json();
+    if(!resp.ok){ toast(data.error || 'No se pudo marcar surtido', 'warn'); return; }
+    toast('Surtido marcado correctamente');
+    await cargarOrdenes();
+    renderAll();
+  }catch(err){
+    console.error(err);
+    toast('No se pudo conectar con el servidor', 'warn');
+  }
+}
+async function marcarTraspaso(id){
+  if(!canDo('almacen')){toast('Solo almacén puede marcar traspaso','warn');return;}
+  try{
+    const resp = await fetch(API_BASE + '/ordenes/' + id + '/traspaso', {method: 'PUT'});
+    const data = await resp.json();
+    if(!resp.ok){ toast(data.error || 'No se pudo marcar traspaso', 'warn'); return; }
+    toast('Traspaso confirmado correctamente');
+    await cargarOrdenes();
+    renderAll();
+  }catch(err){
+    console.error(err);
+    toast('No se pudo conectar con el servidor', 'warn');
+  }
+}
+// ── PAQUETE MULTI-MODELO ──────────────────────────────────
+function agregarModeloExtra(){
+  if(modelosExtras.length>=4){toast('Máximo 5 modelos por paquete','warn');return;}
+  const idx=modelosExtras.length+1;
+  const rowId='modelo-row-'+idx;
+  const inputId='modelo-extra-'+idx;
+  modelosExtras.push({id:inputId});
+  const cont=document.getElementById('modelos-container');
+  const div=document.createElement('div');
+  div.className='frow modelo-extra-frow';
+  div.id=rowId;
+  div.innerHTML=`<div class="fg" style="flex:2"><label>Modelo ${idx+1}</label><input id="${inputId}-m" type="text" placeholder="Modelo adicional"></div><div class="fg" style="flex:1"><label>Piezas</label><input id="${inputId}-p" type="number" min="1" value="1"></div><button class="btn-rm-modelo" type="button" onclick="quitarModeloExtra(${idx})" title="Quitar">✕</button>`;
+  cont.appendChild(div);
+  const hint=document.getElementById('modelos-count-hint');
+  if(hint) hint.textContent=`${modelosExtras.length+1} modelos en este paquete`;
+  if(modelosExtras.length>=4){const btn=document.getElementById('btn-add-modelo');if(btn)btn.style.display='none';}
+}
+
+function quitarModeloExtra(idx){
+  const row=document.getElementById('modelo-row-'+idx);
+  if(row) row.remove();
+  modelosExtras=modelosExtras.filter((_,i)=>i!==(idx-1));
+  const hint=document.getElementById('modelos-count-hint');
+  const total=modelosExtras.length+1;
+  if(hint) hint.textContent=total>1?`${total} modelos en este paquete`:'';
+  const btn=document.getElementById('btn-add-modelo');
+  if(btn) btn.style.display='';
+}
+
+async function guardarOrden(){
+  if(!canDo('captura')){toast('Sin permiso','warn');return;}
+  const venta=document.getElementById('f-venta').value.trim();
+  const modelo=document.getElementById('f-modelo').value.trim();
+  const cliente=document.getElementById('f-cliente').value.trim();
+  const plat=document.getElementById('f-plat').value;
+  const pak=document.getElementById('f-pak').value;
+  const fv=document.getElementById('f-fv').value;
+  if(!venta||!modelo||!cliente||!plat||!pak||!fv){toast('Completa los campos obligatorios (*)','warn');return;}
+
+  // Construir lista de modelos (el principal + los extras del paquete)
+  const listaModelos=[{modelo, piezas:parseInt(document.getElementById('f-pzas').value)||1}];
+  modelosExtras.forEach(e=>{
+    const m=(document.getElementById(e.id+'-m')?.value||'').trim();
+    const p=parseInt(document.getElementById(e.id+'-p')?.value)||1;
+    if(m) listaModelos.push({modelo:m, piezas:p});
+  });
+
+  const baseOrden={
+    ticket: '',
+    venta, fecha_venta: fv, fecha_envio: document.getElementById('f-fe').value,
+    plataforma: plat, razon_social: getRazon(plat), cliente,
+    telefono: document.getElementById('f-tel').value, paqueteria: pak,
+    rastreo: document.getElementById('f-rastreo').value,
+    observacion: document.getElementById('f-obs').value,
+    precio: parseFloat(document.getElementById('f-precio').value)||0
+  };
+
+  try{
+    // Un POST por cada modelo; todos con el mismo número de venta
+    for(const item of listaModelos){
+      const payload={...baseOrden, modelo:item.modelo, piezas:item.piezas};
+      const resp=await fetch(API_BASE+'/ordenes',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      const data=await resp.json();
+      if(!resp.ok){toast(data.error||`Error guardando modelo ${item.modelo}`,'warn');return;}
+    }
+    limpiarForm();
+    const msg=listaModelos.length>1?`Paquete ${venta} registrado (${listaModelos.length} modelos)`:`Orden ${venta} registrada`;
+    toast(msg);
+    await cargarOrdenes();
+    renderAll();
+    goPage('ordenes');
+  }catch(err){
+    console.error(err);
+    toast('No se pudo conectar con el servidor','warn');
+  }
+}
+
+function limpiarForm(){
+  ['f-venta','f-fv','f-fe','f-modelo','f-cliente','f-tel','f-rastreo','f-obs'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  document.getElementById('f-pzas').value=1; document.getElementById('f-precio').value='';
+  document.getElementById('f-plat').value=''; document.getElementById('f-pak').value='';
+  document.getElementById('razon-preview').style.display='none';
+  // Quitar filas de modelos extras
+  modelosExtras.forEach((_,i)=>{const r=document.getElementById('modelo-row-'+(i+1));if(r)r.remove();});
+  modelosExtras=[];
+  const hint=document.getElementById('modelos-count-hint');if(hint)hint.textContent='';
+  const btn=document.getElementById('btn-add-modelo');if(btn)btn.style.display='';
+}
+function updateRazon(){
+  const plat=document.getElementById('f-plat').value;
+  const rs=getRazon(plat);
+  const prev=document.getElementById('razon-preview');
+  if(rs){
+    const cls=rs==='Sonoline'?'rs-son':'rs-aya';
+    prev.innerHTML=`<span class="rs-badge ${cls}">${rs==='Sonoline'?'◉':'◈'} ${rs}</span>`;
+    prev.style.display='flex';
+  }else{prev.style.display='none';}
+}
+
+// ── CANCELACIÓN ───────────────────────────────────────────
+function solicitarCancelacion(id){
+  if(!canDo('captura')){toast('Solo capturistas pueden cancelar','warn');return;}
+  const o=orders.find(x=>x.id===id);if(!o||o.cancelado)return;
+  pendingCancelId=id;
+  pendingCancelEsAmz=false;
+  document.getElementById('modal-canc-title').textContent=`Cancelar — ${o.modelo}`;
+  const impactos=[];
+  if(o.surtido) impactos.push({warn:true,title:'Almacén: devolver mercancía',desc:'El surtido ya fue marcado. Almacén debe regresar la pieza al inventario.'});
+  if(o.traspaso) impactos.push({warn:true,title:'Almacén: revertir traspaso en sistema',desc:'El traspaso ya fue confirmado. Almacén debe cancelarlo en sistema para restituir la pieza.'});
+  if(o.ticketCobro) impactos.push({warn:true,title:`Cobranza: cancelar ticket ${o.ticketCobro}`,desc:'El cobro ya fue registrado. Cobranza debe cancelar el ticket en sistema.'});
+  if(!impactos.length) impactos.push({warn:false,title:'Sin impactos adicionales',desc:'La orden solo está registrada. Se puede cancelar sin acciones en otros equipos.'});
+  document.getElementById('modal-canc-body').innerHTML=`
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Surtido: ${chkSurtido(o.surtido)} &nbsp; Traspaso: ${chkTraspaso(o.traspaso)}</p>
+    <div class="cancel-steps">
+      ${impactos.map(i=>`<div class="cancel-step ${i.warn?'active-step':''}">
+        <div class="step-icon ${i.warn?'warn':'ok'}">${i.warn?'⚠':'✓'}</div>
+        <div><div class="step-title">${i.title}</div><div class="step-desc">${i.desc}</div></div>
+      </div>`).join('')}
+    </div>
+    <p style="font-size:12px;color:var(--text3)">Esta acción no se puede deshacer. Los pendientes aparecerán en <strong>Cancelaciones</strong>.</p>`;
+  closeModal('modal-det');
+  document.getElementById('modal-canc').classList.add('open');
+}
+async function confirmarCancelacion(){
+  if(!pendingCancelId)return;
+  const idACancelar = pendingCancelId;
+  const esAmz = pendingCancelEsAmz;
+  const ruta = esAmz ? '/amazon/ordenes/' : '/ordenes/';
+  try{
+    const resp = await fetch(API_BASE + ruta + idACancelar + '/cancelar', {method: 'PUT'});
+    const data = await resp.json();
+    if(!resp.ok){ toast(data.error || 'No se pudo cancelar la orden', 'warn'); return; }
+    pendingCancelId=null;
+    pendingCancelEsAmz=false;
+    closeModal('modal-canc');
+    toast('Orden cancelada. Revisa la sección Cancelaciones.','red');
+    if(esAmz){ await cargarOrdenesAmz(); renderAllAmz(); }
+    else{ await cargarOrdenes(); renderAll(); }
+  }catch(err){
+    console.error(err);
+    toast('No se pudo conectar con el servidor', 'warn');
+  }
+}
+
+// ── DETALLE ───────────────────────────────────────────────
+async function showDet(id){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  currentDetId=id;
+  currentDetEsAmz=false;
+  document.getElementById('modal-det-title').textContent=`${o.modelo} — ${o.plat}`;
+  const mb=document.getElementById('modal-cancel-btn');
+  if(mb)mb.style.display=(canDo('captura')&&!o.cancelado)?'':'none';
+  const eb=document.getElementById('modal-edit-btn');
+  if(eb)eb.style.display=(canDo('captura')&&!o.cancelado)?'':'none';
+  document.getElementById('modal-det-body').innerHTML=`
+    <div class="detail-grid">
+      <div><div class="dl">No. de venta</div><div class="dv no-v">${o.venta||'-'}</div></div>
+      <div><div class="dl">Ticket Bbay</div><div class="dv">${o.ticket||'<span class="sin">Sin asignar</span>'}</div></div>
+      <div><div class="dl">Modelo</div><div class="dv"><strong>${o.modelo}</strong></div></div>
+      <div><div class="dl">Piezas</div><div class="dv">${o.pzas}</div></div>
+      <div><div class="dl">Plataforma</div><div class="dv"><span class="tag">${o.plat}</span></div></div>
+      <div><div class="dl">Razón social</div><div class="dv">${rsTag(o.rs)}</div></div>
+      <div><div class="dl">Paquetería</div><div class="dv">${o.pak}</div></div>
+      <div><div class="dl">Cliente</div><div class="dv">${o.cliente}</div></div>
+      <div><div class="dl">Fecha venta</div><div class="dv">${o.fv}</div></div>
+      <div><div class="dl">Fecha envío</div><div class="dv" style="${isPosterior(o.fe)?'color:var(--orange);font-weight:600':''}">${o.fe||'-'}${isPosterior(o.fe)?' ⚑':''}</div></div>
+      <div><div class="dl">Surtido</div><div class="dv">${chkSurtido(o.surtido)}</div></div>
+      <div><div class="dl">Traspaso</div><div class="dv">${chkTraspaso(o.traspaso)}</div></div>
+      <div><div class="dl">Ticket cobro</div><div class="dv">${o.ticketCobro?`<span class="ok-txt">${o.ticketCobro}</span>`:'-'}</div></div>
+      <div><div class="dl">Estado</div><div class="dv">${o.cancelado?'<span class="chk" style="background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.3)">✕ Cancelada</span>':'<span class="chk chk-pend">Activa</span>'}</div></div>
+    </div>
+    ${o.obs?`<div style="background:var(--bg3);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2)"><strong>Obs:</strong> ${o.obs}</div>`:''}
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">Historial</div>
+    <div class="table-wrap" id="modal-historial">
+      <div style="padding:14px;text-align:center;color:var(--text3);font-size:12px">Cargando historial...</div>
+    </div>`;
+  document.getElementById('modal-det').classList.add('open');
+
+  // El historial llega aparte, tocando su propia puerta en el backend
+  const historial = await cargarHistorialOrden(id);
+  const contenedor = document.getElementById('modal-historial');
+  if(contenedor){
+    contenedor.innerHTML = historial.length
+      ? historial.map(l=>`<div class="log-entry"><span class="log-who">${l.w}</span><span class="log-act">${l.a}</span><span class="log-time">${l.t}</span></div>`).join('')
+      : `<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px">Sin historial</div>`;
+  }
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.className=`toast show toast-${type==='warn'?'warn':type==='red'?'red':'ok'}`;
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+// ── EDICIÓN CAPTURISTA ────────────────────────────────────
+function abrirEditar(id, esAmz){
+  if(!canDo('captura')){toast('Solo capturistas pueden editar órdenes','warn');return;}
+  editOrdenId=id; editEsAmz=!!esAmz;
+  const lista=esAmz?ordersAmz:orders;
+  const o=lista.find(x=>x.id===id); if(!o) return;
+  document.getElementById('edit-orden-label').textContent=`#${o.venta} — ${o.modelo}`;
+  document.getElementById('edit-venta').value=o.venta||'';
+  document.getElementById('edit-fv').value=o.fv||'';
+  document.getElementById('edit-modelo').value=o.modelo||'';
+  document.getElementById('edit-pzas').value=o.pzas||1;
+  document.getElementById('edit-plat').value=o.plat||'';
+  document.getElementById('edit-pak').value=o.pak||'';
+  document.getElementById('edit-cliente').value=o.cliente||'';
+  document.getElementById('edit-tel').value=o.tel||'';
+  document.getElementById('edit-fe').value=o.fe||'';
+  document.getElementById('edit-rastreo').value=o.rastreo||'';
+  document.getElementById('edit-obs').value=o.obs||'';
+  document.getElementById('edit-precio').value=o.precio||'';
+  document.getElementById('edit-motivo').value='';
+  document.getElementById('modal-editar').classList.add('open');
+}
+
+async function guardarEdicion(){
+  const motivo=document.getElementById('edit-motivo').value.trim();
+  if(!motivo){toast('Debes escribir el motivo de la modificación','warn');return;}
+  const payload={
+    venta:       document.getElementById('edit-venta').value.trim(),
+    fecha_venta: document.getElementById('edit-fv').value,
+    modelo:      document.getElementById('edit-modelo').value.trim(),
+    piezas:      parseInt(document.getElementById('edit-pzas').value)||1,
+    plataforma:  document.getElementById('edit-plat').value,
+    razon_social:getRazon(document.getElementById('edit-plat').value),
+    paqueteria:  document.getElementById('edit-pak').value,
+    cliente:     document.getElementById('edit-cliente').value.trim(),
+    telefono:    document.getElementById('edit-tel').value.trim(),
+    fecha_envio: document.getElementById('edit-fe').value,
+    rastreo:     document.getElementById('edit-rastreo').value.trim(),
+    observacion: document.getElementById('edit-obs').value.trim(),
+    precio:      parseFloat(document.getElementById('edit-precio').value)||0,
+    motivo
+  };
+  if(!payload.venta||!payload.modelo||!payload.cliente||!payload.plataforma||!payload.paqueteria||!payload.fecha_venta){
+    toast('Completa todos los campos obligatorios','warn');return;
+  }
+  const ruta=editEsAmz?'/amazon/ordenes/':'/ordenes/';
+  try{
+    const resp=await fetch(API_BASE+ruta+editOrdenId+'/editar',{
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const data=await resp.json();
+    if(!resp.ok){toast(data.error||'No se pudo guardar la edición','warn');return;}
+    closeModal('modal-editar');
+    toast('Orden actualizada — el equipo fue notificado');
+    agregarNotificacion({
+      titulo:`Orden ${payload.venta} modificada`,
+      subtitulo:`Motivo: ${motivo}`,
+      tiempo:new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})
+    });
+    if(editEsAmz){await cargarOrdenesAmz();renderAllAmz();}
+    else{await cargarOrdenes();renderAll();}
+  }catch(err){
+    console.error(err);
+    toast('No se pudo conectar con el servidor','warn');
+  }
+}
+
+// ── NOTIFICACIONES (en memoria — visibles para quien edita) ──
+function agregarNotificacion(n){
+  notificaciones.unshift({...n, leida:false});
+  notifNoLeidas++;
+  actualizarNotifBadge();
+  if(document.getElementById('notif-panel').style.display!=='none') renderNotifList();
+}
+
+function actualizarNotifBadge(){
+  const cnt=document.getElementById('notif-count');
+  if(!cnt) return;
+  cnt.textContent=notifNoLeidas;
+  cnt.style.display=notifNoLeidas>0?'':'none';
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notif-panel');
+  const visible=panel.style.display!=='none';
+  panel.style.display=visible?'none':'';
+  if(!visible) renderNotifList();
+}
+
+function renderNotifList(){
+  const list=document.getElementById('notif-list');
+  if(!list) return;
+  if(!notificaciones.length){list.innerHTML='<div class="notif-empty">Sin notificaciones</div>';return;}
+  list.innerHTML=notificaciones.map((n,i)=>`
+    <div class="notif-item ${n.leida?'':'unread'}" onclick="marcarLeida(${i})">
+      <div class="ni-title">${n.titulo}</div>
+      <div class="ni-sub">${n.subtitulo||''}</div>
+      <div class="ni-time">${n.tiempo||''}</div>
+    </div>`).join('');
+}
+
+function marcarLeida(i){
+  if(!notificaciones[i].leida){
+    notificaciones[i].leida=true;
+    notifNoLeidas=Math.max(0,notifNoLeidas-1);
+    actualizarNotifBadge(); renderNotifList();
+  }
+}
+
+function marcarTodasLeidas(){
+  notificaciones.forEach(n=>{n.leida=true;}); notifNoLeidas=0;
+  actualizarNotifBadge(); renderNotifList();
+}
+
+// Cerrar panel de notificaciones al hacer clic fuera de él
+document.addEventListener('click',function(e){
+  const panel=document.getElementById('notif-panel');
+  const btn=document.getElementById('notif-btn');
+  if(panel&&btn&&!panel.contains(e.target)&&!btn.contains(e.target)){
+    panel.style.display='none';
+  }
+});
+
+function renderAll(){
+  renderDashboard();renderOrdenes();renderSurtido();renderCobro();
+  renderResumenTraspasos();renderCancelaciones();renderHistorial();
+}
+
+// ── CONEXIÓN CON EL BACKEND (Pieza 3) ────────────────────
+// Aquí es donde JavaScript "toca las puertas" que construimos en Python.
+
+// El backend guarda los nombres en español y sin abreviar
+// (venta, fecha_venta, modelo, piezas...). Tu JavaScript ya está
+// acostumbrado a nombres cortos (venta, fv, modelo, pzas...).
+// Esta función traduce de un formato al otro, para no tener que
+// reescribir todas las funciones de render que ya construimos.
+function traducirOrdenBackend(o){
+  return {
+    id: o.id,
+    ticket: o.ticket || '',
+    venta: o.venta,
+    fv: o.fecha_venta,
+    fe: o.fecha_envio || '',
+    modelo: o.modelo,
+    pzas: o.piezas,
+    plat: o.plataforma,
+    rs: o.razon_social,
+    cliente: o.cliente,
+    tel: o.telefono || '',
+    pak: o.paqueteria,
+    rastreo: o.rastreo || '',
+    obs: o.observacion || '',
+    precio: o.precio || 0,
+    surtido: !!o.surtido,
+    traspaso: !!o.traspaso,
+    ticketCobro: o.ticket_cobro || '',
+    cancelado: !!o.cancelado,
+    surtidoPrevio: !!o.surtido_previo,
+    traspasoPrevio: !!o.traspaso_previo,
+    log: [] // el historial se pide aparte, solo cuando se abre el detalle
+  };
+}
+
+// Toca la puerta GET /api/ordenes y reemplaza la lista local
+// con lo que el backend tiene guardado de verdad.
+async function cargarOrdenes(){
+  try{
+    const resp = await fetch(API_BASE + '/ordenes');
+    if(!resp.ok) throw new Error('El backend respondió con error');
+    const data = await resp.json();
+    orders = data.map(traducirOrdenBackend);
+  }catch(err){
+    console.error('No se pudo conectar con el backend:', err);
+    toast('No se pudo conectar con el servidor. ¿Está prendido el backend?', 'warn');
+  }
+}
+
+// Pide el historial de UNA orden específica (se usa al abrir el detalle)
+async function cargarHistorialOrden(id){
+  try{
+    const resp = await fetch(API_BASE + '/ordenes/' + id + '/historial');
+    if(!resp.ok) throw new Error('No se pudo cargar el historial');
+    const data = await resp.json();
+    return data.map(h => ({w: h.usuario_rol, a: h.accion, t: h.fecha}));
+  }catch(err){
+    console.error('Error cargando historial:', err);
+    return [];
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// MÓDULO AMAZON — mismo patrón que el módulo General completo,
+// pero hablando con las puertas /api/amazon/... y guardando todo
+// en su propia variable ordersAmz (su propio cajón en memoria).
+// ════════════════════════════════════════════════════════════
+
+function traducirOrdenAmz(o){
+  return {
+    id: o.id, ticket: o.ticket || '', venta: o.venta, fv: o.fecha_venta,
+    fe: o.fecha_envio || '', modelo: o.modelo, pzas: o.piezas, plat: o.plataforma,
+    rs: o.razon_social, cliente: o.cliente, tel: o.telefono || '', pak: o.paqueteria,
+    rastreo: o.rastreo || '', obs: o.observacion || '', precio: o.precio || 0,
+    surtido: !!o.surtido, traspaso: !!o.traspaso, ticketCobro: o.ticket_cobro || '',
+    cancelado: !!o.cancelado, surtidoPrevio: !!o.surtido_previo, traspasoPrevio: !!o.traspaso_previo
+  };
+}
+
+async function cargarOrdenesAmz(){
+  try{
+    const resp = await fetch(API_BASE + '/amazon/ordenes');
+    if(!resp.ok) throw new Error('El backend respondió con error');
+    const data = await resp.json();
+    ordersAmz = data.map(traducirOrdenAmz);
+  }catch(err){
+    console.error('No se pudo conectar con el backend (Amazon):', err);
+    toast('No se pudo conectar con el servidor (módulo Amazon)', 'warn');
+  }
+}
+
+function updateRazonAmz(){
+  const plat=document.getElementById('amz-f-plat').value;
+  const rs=getRazonAmz(plat);
+  const prev=document.getElementById('amz-razon-preview');
+  if(rs){
+    const cls=rs==='Sonoline'?'rs-son':'rs-aya';
+    prev.innerHTML=`<span class="rs-badge ${cls}">${rs==='Sonoline'?'◉':'◈'} ${rs}</span>`;
+    prev.style.display='flex';
+  }else{ prev.style.display='none'; }
+}
+
+function renderAmzDashboard(){
+  document.getElementById('amz-dash-date').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const activos=ordersAmz.filter(o=>!o.cancelado);
+  const sinSurtir=activos.filter(o=>isHoy(o.fe)&&!o.surtido).length;
+  const sinTrasp=activos.filter(o=>!o.traspaso).length;
+  const sinTk=activos.filter(o=>o.traspaso&&!o.ticketCobro).length;
+  document.getElementById('amz-stats-row').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Órdenes activas</div><div class="stat-val">${activos.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Sin surtir hoy</div><div class="stat-val" style="color:var(--amber)">${sinSurtir}</div><div class="stat-sub">envíos del día</div></div>
+    <div class="stat-card"><div class="stat-label">Sin traspaso</div><div class="stat-val" style="color:var(--accent)">${sinTrasp}</div><div class="stat-sub">piezas en inventario</div></div>
+    <div class="stat-card"><div class="stat-label">Pendiente cobro</div><div class="stat-val" style="color:var(--purple)">${sinTk}</div></div>`;
+
+  const q=(document.getElementById('amz-dash-search')?.value||'').toLowerCase();
+  const lista=ordersAmz.filter(o=>!q||`${o.venta} ${o.modelo} ${o.cliente} ${o.ticket}`.toLowerCase().includes(q));
+  document.getElementById('amz-dash-table').innerHTML=lista.length?[...lista].reverse().map(o=>`
+    <tr onclick="showDetAmz(${o.id})" style="cursor:pointer" class="${o.cancelado?'row-cancel':''}">
+      <td class="no-v">${o.venta||'-'}</td>
+      <td><strong>${o.modelo}</strong></td>
+      <td><span class="tag">${o.plat}</span></td>
+      <td>${rsTag(o.rs)}</td>
+      <td>${o.cliente}</td>
+      <td class="obs-cell" title="${o.obs||''}">${o.obs||'-'}</td>
+      <td style="${isPosterior(o.fe)&&!o.cancelado?'color:var(--orange);font-weight:600':''}">${fmt(o.fe)}${isPosterior(o.fe)&&!o.cancelado?' ⚑':''}</td>
+      <td>${chkSurtido(o.surtido)}</td>
+      <td>${chkTraspaso(o.traspaso)}</td>
+      <td>${chkCobro(o.ticketCobro)}</td>
+      <td>${o.cancelado?'<span class="chk" style="background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.3)">✕ Cancelada</span>':'<span class="chk chk-pend">Activa</span>'}</td>
+      <td>${(canDo('captura')&&!o.cancelado)?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();solicitarCancelacionAmz(${o.id})">✕</button>`:''}</td>
+    </tr>`).join(''):`<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text3)">Sin resultados</td></tr>`;
+}
+
+function renderAmzOrdenes(){
+  const q=(document.getElementById('amz-s-search').value||'').toLowerCase();
+  const plat=document.getElementById('amz-s-plat').value;
+  const rs=document.getElementById('amz-s-rs').value;
+  const est=document.getElementById('amz-s-estado').value;
+  const f=ordersAmz.filter(o=>{
+    if(q&&!`${o.ticket} ${o.modelo} ${o.cliente} ${o.venta}`.toLowerCase().includes(q))return false;
+    if(plat&&o.plat!==plat)return false;
+    if(rs&&o.rs!==rs)return false;
+    if(est==='activas'&&o.cancelado)return false;
+    if(est==='CANCELADO'&&!o.cancelado)return false;
+    return true;
+  });
+  document.getElementById('amz-ordenes-table').innerHTML=f.length?f.map(o=>`<tr>
+    <td><a class="link no-v" onclick="showDetAmz(${o.id})">${o.venta||'-'}</a></td>
+    <td>${fmt(o.fv)}</td><td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+    <td><span class="tag">${o.plat}</span></td>
+    <td>${rsTag(o.rs)}</td>
+    <td>${o.cliente}</td><td>${o.pak}</td>
+    <td style="${isPosterior(o.fe)?'color:var(--orange);font-weight:600':''}">${fmt(o.fe)}${isPosterior(o.fe)?' ⚑':''}</td>
+    <td>${chkSurtido(o.surtido)}</td>
+    <td>${chkTraspaso(o.traspaso)}</td>
+    <td>${o.ticket||'<span class="sin">—</span>'}</td>
+    <td>${o.ticketCobro?`<span class="ok-txt">✓ ${o.ticketCobro}</span>`:'-'}</td>
+    <td><button class="btn btn-sm" onclick="showDetAmz(${o.id})">👁</button></td>
+  </tr>`).join(''):`<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</td></tr>`;
+}
+
+async function guardarOrdenAmz(){
+  if(!canDo('captura')){toast('Sin permiso','warn');return;}
+  const venta=document.getElementById('amz-f-venta').value.trim();
+  const modelo=document.getElementById('amz-f-modelo').value.trim();
+  const cliente=document.getElementById('amz-f-cliente').value.trim();
+  const plat=document.getElementById('amz-f-plat').value;
+  const pak=document.getElementById('amz-f-pak').value;
+  const fv=document.getElementById('amz-f-fv').value;
+  if(!venta||!modelo||!cliente||!plat||!pak||!fv){toast('Completa los campos obligatorios (*)','warn');return;}
+
+  const nuevaOrden = {
+    ticket: document.getElementById('amz-f-ticket').value.trim(),
+    venta, fecha_venta: fv, fecha_envio: document.getElementById('amz-f-fe').value,
+    modelo, piezas: parseInt(document.getElementById('amz-f-pzas').value)||1,
+    plataforma: plat, razon_social: getRazonAmz(plat), cliente,
+    telefono: document.getElementById('amz-f-tel').value, paqueteria: pak,
+    rastreo: document.getElementById('amz-f-rastreo').value,
+    observacion: document.getElementById('amz-f-obs').value,
+    precio: parseFloat(document.getElementById('amz-f-precio').value)||0
+  };
+
+  try{
+    const resp = await fetch(API_BASE + '/amazon/ordenes', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(nuevaOrden)
+    });
+    const data = await resp.json();
+    if(!resp.ok){ toast(data.error || 'No se pudo guardar la orden', 'warn'); return; }
+    limpiarFormAmz();
+    toast(`Orden Amazon ${venta} registrada`);
+    await cargarOrdenesAmz();
+    renderAllAmz();
+    goPage('amz-ordenes');
+  }catch(err){
+    console.error(err);
+    toast('No se pudo conectar con el servidor', 'warn');
+  }
+}
+
+function limpiarFormAmz(){
+  ['amz-f-ticket','amz-f-venta','amz-f-fv','amz-f-fe','amz-f-modelo','amz-f-cliente','amz-f-tel','amz-f-rastreo','amz-f-obs'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  document.getElementById('amz-f-pzas').value=1;
+  document.getElementById('amz-f-precio').value='';
+  document.getElementById('amz-f-plat').value='';
+  document.getElementById('amz-f-pak').value='';
+  document.getElementById('amz-razon-preview').style.display='none';
+}
+
+async function showDetAmz(id){
+  const o=ordersAmz.find(x=>x.id===id);if(!o)return;
+  currentDetId=id;
+  currentDetEsAmz=true;
+  document.getElementById('modal-det-title').textContent=`${o.modelo} — ${o.plat} (Amazon)`;
+  const mb=document.getElementById('modal-cancel-btn');
+  if(mb)mb.style.display=(canDo('captura')&&!o.cancelado)?'':'none';
+  document.getElementById('modal-det-body').innerHTML=`
+    <div class="detail-grid">
+      <div><div class="dl">No. de venta</div><div class="dv no-v">${o.venta||'-'}</div></div>
+      <div><div class="dl">Ticket Bbay</div><div class="dv">${o.ticket||'<span class="sin">Sin asignar</span>'}</div></div>
+      <div><div class="dl">Modelo</div><div class="dv"><strong>${o.modelo}</strong></div></div>
+      <div><div class="dl">Piezas</div><div class="dv">${o.pzas}</div></div>
+      <div><div class="dl">Plataforma</div><div class="dv"><span class="tag">${o.plat}</span></div></div>
+      <div><div class="dl">Razón social</div><div class="dv">${rsTag(o.rs)}</div></div>
+      <div><div class="dl">Paquetería</div><div class="dv">${o.pak}</div></div>
+      <div><div class="dl">Cliente</div><div class="dv">${o.cliente}</div></div>
+      <div><div class="dl">Fecha venta</div><div class="dv">${o.fv}</div></div>
+      <div><div class="dl">Fecha envío</div><div class="dv" style="${isPosterior(o.fe)?'color:var(--orange);font-weight:600':''}">${o.fe||'-'}${isPosterior(o.fe)?' ⚑':''}</div></div>
+      <div><div class="dl">Surtido</div><div class="dv">${chkSurtido(o.surtido)}</div></div>
+      <div><div class="dl">Traspaso</div><div class="dv">${chkTraspaso(o.traspaso)}</div></div>
+      <div><div class="dl">Ticket cobro</div><div class="dv">${o.ticketCobro?`<span class="ok-txt">${o.ticketCobro}</span>`:'-'}</div></div>
+      <div><div class="dl">Estado</div><div class="dv">${o.cancelado?'<span class="chk" style="background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.3)">✕ Cancelada</span>':'<span class="chk chk-pend">Activa</span>'}</div></div>
+    </div>
+    ${o.obs?`<div style="background:var(--bg3);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2)"><strong>Obs:</strong> ${o.obs}</div>`:''}
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">Historial</div>
+    <div class="table-wrap" id="modal-historial">
+      <div style="padding:14px;text-align:center;color:var(--text3);font-size:12px">Cargando historial...</div>
+    </div>`;
+  document.getElementById('modal-det').classList.add('open');
+
+  try{
+    const resp = await fetch(API_BASE + '/amazon/ordenes/' + id + '/historial');
+    const historial = resp.ok ? (await resp.json()).map(h=>({w:h.usuario_rol,a:h.accion,t:h.fecha})) : [];
+    const contenedor = document.getElementById('modal-historial');
+    if(contenedor){
+      contenedor.innerHTML = historial.length
+        ? historial.map(l=>`<div class="log-entry"><span class="log-who">${l.w}</span><span class="log-act">${l.a}</span><span class="log-time">${l.t}</span></div>`).join('')
+        : `<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px">Sin historial</div>`;
+    }
+  }catch(err){ console.error(err); }
+}
+
+function solicitarCancelacionAmz(id){
+  if(!canDo('captura')){toast('Solo capturistas pueden cancelar','warn');return;}
+  const o=ordersAmz.find(x=>x.id===id);if(!o||o.cancelado)return;
+  pendingCancelId=id;
+  pendingCancelEsAmz=true;
+  document.getElementById('modal-canc-title').textContent=`Cancelar (Amazon) — ${o.modelo}`;
+  const impactos=[];
+  if(o.surtido) impactos.push({warn:true,title:'Almacén: devolver mercancía',desc:'El surtido ya fue marcado. Almacén debe regresar la pieza al inventario.'});
+  if(o.traspaso) impactos.push({warn:true,title:'Almacén: revertir traspaso en sistema',desc:'El traspaso ya fue confirmado. Almacén debe cancelarlo en sistema para restituir la pieza.'});
+  if(o.ticketCobro) impactos.push({warn:true,title:`Cobranza: cancelar ticket ${o.ticketCobro}`,desc:'El cobro ya fue registrado. Cobranza debe cancelar el ticket en sistema.'});
+  if(!impactos.length) impactos.push({warn:false,title:'Sin impactos adicionales',desc:'La orden solo está registrada. Se puede cancelar sin acciones en otros equipos.'});
+  document.getElementById('modal-canc-body').innerHTML=`
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Surtido: ${chkSurtido(o.surtido)} &nbsp; Traspaso: ${chkTraspaso(o.traspaso)}</p>
+    <div class="cancel-steps">
+      ${impactos.map(i=>`<div class="cancel-step ${i.warn?'active-step':''}">
+        <div class="step-icon ${i.warn?'warn':'ok'}">${i.warn?'⚠':'✓'}</div>
+        <div><div class="step-title">${i.title}</div><div class="step-desc">${i.desc}</div></div>
+      </div>`).join('')}
+    </div>
+    <p style="font-size:12px;color:var(--text3)">Esta acción no se puede deshacer.</p>`;
+  closeModal('modal-det');
+  document.getElementById('modal-canc').classList.add('open');
+}
+
+// ── AMAZON: SURTIDO / TRASPASO ───────────────────────────
+function renderResumenAmz(){
+  const traspasados=ordersAmz.filter(o=>!o.cancelado&&o.traspaso);
+  const son=traspasados.filter(o=>o.rs==='Sonoline').reduce((a,o)=>a+o.pzas,0);
+  const aya=traspasados.filter(o=>o.rs==='Alberto Ayala').reduce((a,o)=>a+o.pzas,0);
+  const total=son+aya;
+  const mapa={};
+  traspasados.forEach(o=>{
+    if(!mapa[o.modelo])mapa[o.modelo]={son:0,aya:0};
+    if(o.rs==='Sonoline')mapa[o.modelo].son+=o.pzas;
+    else mapa[o.modelo].aya+=o.pzas;
+  });
+  if(total===0){
+    document.getElementById('amz-resumen-card').innerHTML=`<div style="padding:20px;text-align:center;color:var(--text3)">Aún no se han confirmado traspasos hoy</div>`;
+    return;
+  }
+  document.getElementById('amz-resumen-card').innerHTML=`
+    <div class="resumen-header">
+      <span class="resumen-title">Total traspasado hoy</span>
+      <span style="font-size:12px;color:var(--text3)">${total} pza${total!==1?'s':''} · ${Object.keys(mapa).length} modelo${Object.keys(mapa).length!==1?'s':''}</span>
+    </div>
+    <div class="resumen-rs-block">
+      <div class="rs-big"><div class="rs-big-label">Sonoline</div><div class="rs-big-val son">${son} pzas</div></div>
+      <div class="rs-divider"></div>
+      <div class="rs-big"><div class="rs-big-label">Alberto Ayala</div><div class="rs-big-val aya">${aya} pzas</div></div>
+      <div class="rs-divider"></div>
+      <div class="rs-models">
+        ${Object.entries(mapa).map(([m,d])=>`
+          <span style="font-size:12px;color:var(--text2)"><strong style="color:var(--text)">${m}</strong>
+          ${d.son?`<span class="rs-badge rs-son" style="font-size:11px;padding:2px 7px">${d.son}pz Son</span>`:''}
+          ${d.aya?`<span class="rs-badge rs-aya" style="font-size:11px;padding:2px 7px">${d.aya}pz AA</span>`:''}</span>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderSurtidoAmz(){
+  const locked=!canDo('almacen');
+  document.getElementById('amz-surtido-lock').style.display=locked?'flex':'none';
+  renderResumenAmz();
+  const q=(document.getElementById('amz-ss-search').value||'').toLowerCase();
+  const dis=locked?'style="opacity:.35;pointer-events:none"':'';
+
+  const hoy=ordersAmz.filter(o=>!o.cancelado&&isHoy(o.fe)&&(!q||`${o.venta} ${o.modelo}`.toLowerCase().includes(q)));
+  document.getElementById('amz-surtido-hoy-table').innerHTML=hoy.length?hoy.map(o=>`<tr>
+    <td class="no-v">${o.venta||'-'}</td>
+    <td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+    <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+    <td>${o.cliente}</td>
+    <td class="obs-cell" title="${o.obs}">${o.obs||'-'}</td>
+    <td>${o.surtido?`<span class="chk chk-done-s">✓ Surtido</span>`:`<div ${dis}><button class="btn btn-success btn-sm" onclick="marcarSurtidoAmz(${o.id})">✓ Marcar surtido</button></div>`}</td>
+    <td>${o.traspaso?`<span class="chk chk-done-t">⇄ Traspasado</span>`:`<div ${dis}><button class="btn btn-accent btn-sm" onclick="marcarTraspasoAmz(${o.id})">⇄ Marcar traspaso</button></div>`}</td>
+  </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">No hay órdenes de hoy</td></tr>`;
+
+  const post=ordersAmz.filter(o=>!o.cancelado&&isPosterior(o.fe)&&(!q||`${o.venta} ${o.modelo}`.toLowerCase().includes(q)));
+  document.getElementById('amz-surtido-post-table').innerHTML=post.length?post.map(o=>`<tr>
+    <td class="no-v">${o.venta||'-'}</td>
+    <td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+    <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+    <td>${o.cliente}</td>
+    <td style="color:var(--orange);font-weight:600">${fmt(o.fe)} ⚑</td>
+    <td>${o.traspaso?`<span class="chk chk-done-t">⇄ Traspasado</span>`:`<div ${dis}><button class="btn btn-accent btn-sm" onclick="marcarTraspasoAmz(${o.id})">⇄ Marcar traspaso</button></div>`}</td>
+  </tr>`).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">No hay envíos posteriores</td></tr>`;
+}
+
+async function marcarSurtidoAmz(id){
+  if(!canDo('almacen')){toast('Solo almacén puede marcar surtido','warn');return;}
+  try{
+    const resp = await fetch(API_BASE + '/amazon/ordenes/' + id + '/surtido', {method: 'PUT'});
+    const data = await resp.json();
+    if(!resp.ok){ toast(data.error || 'No se pudo marcar surtido', 'warn'); return; }
+    toast('Surtido marcado correctamente');
+    await cargarOrdenesAmz();
+    renderAllAmz();
+  }catch(err){ console.error(err); toast('No se pudo conectar con el servidor', 'warn'); }
+}
+async function marcarTraspasoAmz(id){
+  if(!canDo('almacen')){toast('Solo almacén puede marcar traspaso','warn');return;}
+  try{
+    const resp = await fetch(API_BASE + '/amazon/ordenes/' + id + '/traspaso', {method: 'PUT'});
+    const data = await resp.json();
+    if(!resp.ok){ toast(data.error || 'No se pudo marcar traspaso', 'warn'); return; }
+    toast('Traspaso confirmado correctamente');
+    await cargarOrdenesAmz();
+    renderAllAmz();
+  }catch(err){ console.error(err); toast('No se pudo conectar con el servidor', 'warn'); }
+}
+
+// ── AMAZON: COBRO ────────────────────────────────────────
+function renderCobroAmz(){
+  const locked=!canDo('cobranza');
+  document.getElementById('amz-cobro-lock').style.display=locked?'flex':'none';
+  const btnAsentar=document.getElementById('amz-btn-asentar');
+  if(btnAsentar) btnAsentar.style.display=locked?'none':'';
+  const q=(document.getElementById('amz-ck-search').value||'').toLowerCase();
+  const f=ordersAmz.filter(o=>!o.cancelado&&o.traspaso&&(!q||`${o.venta} ${o.modelo} ${o.cliente}`.toLowerCase().includes(q)));
+  document.getElementById('amz-cobro-table').innerHTML=f.length?f.map(o=>{
+    const tieneTicket=!!o.ticketCobro;
+    const inputCell=`<div class="btn-group" style="${locked?'opacity:.35;pointer-events:none':''}">
+        <input class="ticket-input" id="amz-tk-${o.id}" placeholder="Núm. ticket" value="${o.ticketCobro||''}" data-orig="${o.ticketCobro||''}">
+        ${tieneTicket?`<span class="ok-txt" style="font-size:11px">✓ asentado</span>`:''}
+      </div>`;
+    return`<tr class="${!tieneTicket?'row-ready':''}">
+      <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+      <td>${rsTag(o.rs)}</td><td><span class="tag">${o.plat}</span></td>
+      <td>${o.cliente}</td>
+      <td>${chkTraspaso(o.traspaso)}</td>
+      <td>${inputCell}</td></tr>`;
+  }).join(''):`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">No hay órdenes con traspaso confirmado</td></tr>`;
+}
+
+async function asentarTicketsAmz(){
+  if(!canDo('cobranza')){toast('Solo cobranza puede asentar tickets','warn');return;}
+  const visibles=ordersAmz.filter(o=>!o.cancelado&&o.traspaso);
+  const cambios=[];
+  visibles.forEach(o=>{
+    const inp=document.getElementById('amz-tk-'+o.id);
+    if(!inp) return;
+    const val=inp.value.trim();
+    const orig=inp.dataset.orig||'';
+    if(val===orig) return;
+    if(!val) return;
+    cambios.push({id:o.id, ticket_cobro:val});
+  });
+  if(cambios.length===0){ toast('No hay cambios para asentar','warn'); return; }
+
+  let exitosos=0, fallidos=0;
+  for(const cambio of cambios){
+    try{
+      const resp = await fetch(API_BASE + '/amazon/ordenes/' + cambio.id + '/ticket-cobro', {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ticket_cobro: cambio.ticket_cobro})
+      });
+      if(resp.ok) exitosos++; else fallidos++;
+    }catch(err){ console.error(err); fallidos++; }
+  }
+  await cargarOrdenesAmz();
+  renderAllAmz();
+  if(fallidos===0){ toast(`Asentado: ${exitosos} ticket${exitosos!==1?'s':''}`); }
+  else{ toast(`Asentados ${exitosos}, fallaron ${fallidos}`, 'warn'); }
+}
+
+// ── AMAZON: RESUMEN DE TRASPASOS ─────────────────────────
+let lastResumenFilasAmz=[];
+
+function renderResumenTraspasosAmz(){
+  const rsFiltro=document.getElementById('amz-rt-rs').value;
+  const traspasadosHoy=ordersAmz.filter(o=>!o.cancelado&&o.traspaso&&(!rsFiltro||o.rs===rsFiltro));
+  const son=traspasadosHoy.filter(o=>o.rs==='Sonoline').reduce((a,o)=>a+o.pzas,0);
+  const aya=traspasadosHoy.filter(o=>o.rs==='Alberto Ayala').reduce((a,o)=>a+o.pzas,0);
+  const total=son+aya;
+
+  const mapa={};
+  traspasadosHoy.forEach(o=>{
+    const key=o.modelo+'|'+o.rs;
+    if(!mapa[key]) mapa[key]={modelo:o.modelo,rs:o.rs,pzas:0};
+    mapa[key].pzas+=o.pzas;
+  });
+  const filas=Object.values(mapa).sort((a,b)=>a.modelo.localeCompare(b.modelo)||a.rs.localeCompare(b.rs));
+  lastResumenFilasAmz=filas;
+
+  if(total===0){
+    document.getElementById('amz-post-resumen-card').innerHTML=`<div style="padding:24px;text-align:center;color:var(--text3)">Aún no se han confirmado traspasos hoy${rsFiltro?' para '+rsFiltro:''}</div>`;
+    return;
+  }
+  document.getElementById('amz-post-resumen-card').innerHTML=`
+    <div class="resumen-header">
+      <span class="resumen-title">Traspasar en sistema — listo para copiar${rsFiltro?' · '+rsFiltro:''}</span>
+      <span style="font-size:12px;color:var(--text3)">${total} pza${total!==1?'s':''} totales${!rsFiltro?` · Sonoline ${son} · Alberto Ayala ${aya}`:''}</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Modelo</th>${rsFiltro?'':'<th>Razón social</th>'}<th>Piezas a traspasar</th></tr></thead>
+        <tbody>
+          ${filas.map(f=>`<tr>
+            <td><strong>${f.modelo}</strong></td>
+            ${rsFiltro?'':`<td>${rsTag(f.rs)}</td>`}
+            <td style="font-size:16px;font-weight:700;color:${f.rs==='Sonoline'?'var(--accent)':'var(--purple)'}">${f.pzas} pza${f.pzas!==1?'s':''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function copiarResumenTraspasosAmz(){
+  const rsFiltro=document.getElementById('amz-rt-rs').value;
+  if(!lastResumenFilasAmz.length){toast('No hay datos para copiar','warn');return;}
+  const texto=lastResumenFilasAmz.map(f=>rsFiltro?`${f.modelo}\t${f.pzas}`:`${f.modelo}\t${f.rs}\t${f.pzas}`).join('\n');
+  navigator.clipboard.writeText(texto).then(()=>{
+    toast(`Resumen copiado${rsFiltro?' ('+rsFiltro+')':''} — listo para pegar en sistema`);
+  }).catch(()=>{ toast('No se pudo copiar automáticamente','warn'); });
+}
+
+// ── AMAZON: CANCELACIONES ────────────────────────────────
+function renderCancelacionesAmz(){
+  const canc=ordersAmz.filter(o=>o.cancelado);
+  document.getElementById('amz-badge-canc').textContent=canc.length;
+
+  const almPend=canc.filter(o=>o.surtidoPrevio||o.traspasoPrevio);
+  document.getElementById('amz-canc-alm-table').innerHTML=almPend.length?almPend.map(o=>{
+    let pend='';
+    if(o.surtidoPrevio&&o.traspasoPrevio) pend='<span style="color:var(--red)">Devolver mercancía + revertir traspaso en sistema</span>';
+    else if(o.traspasoPrevio) pend='<span style="color:var(--red)">Revertir traspaso en sistema</span>';
+    else pend='<span style="color:var(--amber)">Devolver mercancía a inventario</span>';
+    return`<tr class="row-cancel">
+      <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td><td>${o.pzas}</td>
+      <td>${rsTag(o.rs)}</td><td>${o.pak}</td>
+      <td>${o.surtidoPrevio?'<span class="chk chk-done-s">✓ Sí</span>':'<span class="chk chk-pend">No</span>'}</td>
+      <td>${o.traspasoPrevio?'<span class="chk chk-done-t">⇄ Sí</span>':'<span class="chk chk-pend">No</span>'}</td>
+      <td>${pend}</td></tr>`;
+  }).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pendientes de almacén</td></tr>`;
+
+  const cobPend=canc.filter(o=>o.ticketCobro);
+  document.getElementById('amz-canc-cob-table').innerHTML=cobPend.length?cobPend.map(o=>`<tr class="row-cancel">
+    <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+    <td>${rsTag(o.rs)}</td>
+    <td><span class="ok-txt">${o.ticketCobro}</span></td>
+    <td><span style="color:var(--red);font-weight:600">⚠ Cancelar ticket en sistema</span></td></tr>`).join('')
+    :`<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text3)">Sin tickets pendientes</td></tr>`;
+
+  document.getElementById('amz-canc-all-table').innerHTML=canc.length?canc.map(o=>`<tr>
+    <td class="no-v">${o.venta||'-'}</td><td><strong>${o.modelo}</strong></td>
+    <td>${rsTag(o.rs)}</td><td>${o.cliente}</td>
+    <td>${o.surtidoPrevio?'<span class="chk chk-done-s">✓</span>':'—'}</td>
+    <td>${o.traspasoPrevio?'<span class="chk chk-done-t">⇄</span>':'—'}</td>
+    <td>${o.ticketCobro?`<span class="ok-txt">${o.ticketCobro}</span>`:'-'}</td>
+    <td style="font-size:11px;color:var(--text3)">Captura</td></tr>`).join('')
+    :`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin cancelaciones</td></tr>`;
+}
+
+function renderAllAmz(){
+  renderAmzDashboard();
+  renderAmzOrdenes();
+  renderSurtidoAmz();
+  renderCobroAmz();
+  renderResumenTraspasosAmz();
+  renderCancelacionesAmz();
+}
+
+// ── INIT ──────────────────────────────────────────────────
+const sp=document.getElementById('s-plat');
+PLATS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;sp.appendChild(o);});
+document.getElementById('f-fv').valueAsDate=new Date();
+
+// Mismo patrón para el selector de plataformas del módulo Amazon
+const spAmz=document.getElementById('amz-s-plat');
+PLATS_AMZ.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;spAmz.appendChild(o);});
+document.getElementById('amz-f-fv').valueAsDate=new Date();
+
+updateNav();
+
+// Antes solo llamábamos renderAll() con datos inventados.
+// Ahora primero pedimos los datos reales al backend, y hasta
+// que llegan, dibujamos la pantalla. Cargamos ambos módulos
+// desde el inicio para que el contador de Amazon ya esté listo
+// en cuanto el usuario cambie de módulo.
+(async function iniciar(){
+  await cargarOrdenes();
+  await cargarOrdenesAmz();
+  renderAll();
+})();
+</script>
+
+<!-- PANEL DE NOTIFICACIONES -->
+<div id="notif-panel" class="notif-panel" style="display:none">
+  <div class="notif-header">
+    <span class="notif-title">Modificaciones recientes</span>
+    <span class="filter-clear" onclick="marcarTodasLeidas()" style="cursor:pointer">Marcar leídas</span>
+  </div>
+  <div id="notif-list"></div>
+</div>
+
+<!-- MODAL EDITAR ORDEN (solo Captura) -->
+<div class="modal-overlay" id="modal-editar" onclick="if(event.target===this)closeModal('modal-editar')">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">Editar orden — <span id="edit-orden-label"></span></div>
+    <div id="modal-editar-body">
+      <div class="edit-reason-warn">
+        ⚠️ Al guardar, se notificará al equipo sobre la modificación. Todos los usuarios serán informados.
+      </div>
+      <div class="edit-grid">
+        <div class="edit-field-wrap">
+          <label>No. de venta</label>
+          <input id="edit-venta" type="text">
+        </div>
+        <div class="edit-field-wrap">
+          <label>Fecha de venta</label>
+          <input id="edit-fv" type="date">
+        </div>
+        <div class="edit-field-wrap">
+          <label>Modelo / SKU</label>
+          <input id="edit-modelo" type="text">
+        </div>
+        <div class="edit-field-wrap">
+          <label>Piezas</label>
+          <input id="edit-pzas" type="number" min="1">
+        </div>
+        <div class="edit-field-wrap">
+          <label>Plataforma</label>
+          <select id="edit-plat">
+            <option>ML PRIN</option><option>ML YAM</option><option>ML BOSE</option><option>ML BOSE AUDIO</option><option>ML CONNECT</option><option>ML SM</option><option>ELEKTRA</option><option>WALMART PRIN</option><option>WALMART SON</option><option>LIVERPOOL</option><option>LIVERPOOL SON</option><option>COPPEL</option><option>CLAROSHOP</option><option>TOTALSHOP</option><option>SHOPIFY</option><option>SHEIN</option><option>RAPPI</option><option>CHEDRAUI</option><option>TIKTOKSHOP</option>
+          </select>
+        </div>
+        <div class="edit-field-wrap">
+          <label>Paquetería</label>
+          <select id="edit-pak">
+            <option>DHL</option><option>ESTAFETA</option><option>FEDEX</option><option>PAQUETEXPRESS</option><option>MERCADO ENVIOS</option><option>UPS</option><option>ENTREGA PERSONAL</option><option>COPPEL EXPRESS</option><option>TRANSGO</option><option>JYT</option>
+          </select>
+        </div>
+        <div class="edit-field-wrap">
+          <label>Cliente</label>
+          <input id="edit-cliente" type="text">
+        </div>
+        <div class="edit-field-wrap">
+          <label>Teléfono</label>
+          <input id="edit-tel" type="text">
+        </div>
+        <div class="edit-field-wrap">
+          <label>Fecha de envío</label>
+          <input id="edit-fe" type="date">
+        </div>
+        <div class="edit-field-wrap">
+          <label>No. de rastreo</label>
+          <input id="edit-rastreo" type="text">
+        </div>
+        <div class="edit-field-wrap full">
+          <label>Observación</label>
+          <textarea id="edit-obs" rows="2"></textarea>
+        </div>
+        <div class="edit-field-wrap full">
+          <label>Precio</label>
+          <input id="edit-precio" type="number" step="0.01">
+        </div>
+      </div>
+      <div class="edit-field-wrap">
+        <label>Motivo de la modificación <span style="color:var(--red)">*</span></label>
+        <textarea id="edit-motivo" rows="2" placeholder="Ej: Error en el modelo capturado, el cliente solicitó cambio de fecha..."></textarea>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <button class="btn" onclick="closeModal('modal-editar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicion()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Guardar cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+
+</html>
